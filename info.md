@@ -1,13 +1,13 @@
-Weather Wise is a polished Home Assistant dashboard card for current conditions, forecasts, and NOAA radar.
+# WeatherWise
 
-![Weather Wise dashboard preview](docs/preview.png)
+Weather dashboard custom card for Home Assistant.
 
-Use it with any Home Assistant `weather` entity:
+WeatherWise shows current weather, hourly and daily forecasts, sunrise and sunset, wind, humidity, and optional radar using an existing Home Assistant `weather` entity.
 
-```yaml
-type: custom:weather-wise-card
-entity: weather.home
-name: Home
-latitude: 33.688
-longitude: -78.886
-```
+It supports United States, Canada, United Kingdom, and global/other dashboard setups. US cards use NOAA radar by default. Canada, UK, and global cards use RainViewer global radar by default.
+
+WeatherWise is early beta software.
+
+## Support
+
+WeatherWise has no telemetry, ads, popups, tracking pixels, or in-card donation prompts.

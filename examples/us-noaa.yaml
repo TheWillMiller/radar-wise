@@ -1,0 +1,12 @@
+type: custom:weatherwise-card
+entity: weather.home
+title: Local Weather
+country: us
+radar_provider: auto
+theme_mode: weatherwise
+units: auto
+latitude: 33.688
+longitude: -78.886
+grid_options:
+  rows: full
+  columns: 18

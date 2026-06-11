@@ -1,0 +1,30 @@
+{
+  "name": "weatherwise-card",
+  "version": "0.1.0-beta.1",
+  "description": "Weather dashboard custom card for Home Assistant with forecasts and optional radar.",
+  "type": "module",
+  "files": [
+    "weatherwise-card.js",
+    "README.md",
+    "info.md",
+    "hacs.json",
+    "examples"
+  ],
+  "scripts": {
+    "check": "node --check weatherwise-card.js"
+  },
+  "keywords": [
+    "home-assistant",
+    "hacs",
+    "dashboard",
+    "lovelace",
+    "custom-card",
+    "weather",
+    "forecast",
+    "radar",
+    "noaa",
+    "rainviewer"
+  ],
+  "license": "MIT",
+  "private": false
+}

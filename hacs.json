@@ -1,6 +1,7 @@
 {
-  "name": "Weather Wise",
-  "filename": "dist/weather-wise.js",
-  "homeassistant": "2024.6.0",
-  "hacs": "2.0.0"
+  "name": "WeatherWise",
+  "country": "US",
+  "content_in_root": true,
+  "render_readme": true,
+  "filename": "weatherwise-card.js"
 }

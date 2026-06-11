@@ -1,0 +1,12 @@
+type: custom:weatherwise-card
+entity: weather.home
+title: Local Weather
+country: ca
+radar_provider: auto
+theme_mode: weatherwise
+units: metric
+latitude: 43.6532
+longitude: -79.3832
+grid_options:
+  rows: full
+  columns: 18

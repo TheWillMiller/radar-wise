@@ -1,0 +1,75 @@
+name: Works For Me / Confirmed Setup
+description: Confirm a WeatherWise install and weather/radar setup that works.
+title: "[Works For Me]: "
+labels:
+  - works-for-me
+  - confirmed-setup
+body:
+  - type: input
+    id: weatherwise_version
+    attributes:
+      label: WeatherWise version
+      placeholder: v0.1.0-beta.1
+    validations:
+      required: true
+  - type: input
+    id: home_assistant_version
+    attributes:
+      label: Home Assistant version
+    validations:
+      required: true
+  - type: input
+    id: hacs_version
+    attributes:
+      label: HACS version
+    validations:
+      required: false
+  - type: input
+    id: weather_entity
+    attributes:
+      label: Weather entity
+      placeholder: weather.home
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Location/general area
+      placeholder: Myrtle Beach, SC / Toronto, ON / London, UK / etc.
+    validations:
+      required: true
+  - type: dropdown
+    id: radar_provider
+    attributes:
+      label: Radar provider
+      options:
+        - Auto
+        - US NOAA radar
+        - RainViewer global radar
+        - No radar
+    validations:
+      required: true
+  - type: input
+    id: browser_device
+    attributes:
+      label: Browser/device
+    validations:
+      required: true
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Install method
+      options:
+        - HACS custom repository
+        - Manual local resource
+        - CDN test resource
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes or screenshot
+      description: Optional screenshot or notes about what worked.
+    validations:
+      required: false

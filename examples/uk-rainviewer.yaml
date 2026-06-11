@@ -1,0 +1,12 @@
+type: custom:weatherwise-card
+entity: weather.home
+title: Local Weather
+country: uk
+radar_provider: auto
+theme_mode: auto
+units: metric
+latitude: 51.5072
+longitude: -0.1276
+grid_options:
+  rows: full
+  columns: 18
