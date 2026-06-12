@@ -29,5 +29,5 @@ TheWillMiller/weather-wise
    `home-assistant`, `hacs`, `lovelace`, `custom-card`, `weather`.
 4. Make sure issues are enabled.
 5. Confirm the HACS validation workflow passes.
-6. Create a full GitHub release such as `v0.2.0-beta.9`.
+6. Create a full GitHub release such as `v0.2.0-beta.10`.
 7. Open the PR from your personal fork of `hacs/default`, not an organization account.

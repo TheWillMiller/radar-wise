@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0-beta.10
+
+### Added
+
+- Added a `layout` option with `auto`, `wide_panel`, `stacked`, and `compact` modes.
+- Added the layout selector to the visual editor.
+
+### Fixed
+
+- Improved Home Assistant Sections dashboard behavior by increasing default grid height and adding safer stacked/compact layouts.
+- Fixed radar initialization when multiple WeatherWise cards or editor previews load Leaflet at the same time.
+- Added more radar size retries after dashboard save/reload so the map is less likely to stay blank.
+- Allowed hourly rows to stretch to fill available height when only a few rows are shown.
+- Reduced current-temperature clipping risk in short landscape cards.
+
 ## 0.2.0-beta.9
 
 ### Fixed
