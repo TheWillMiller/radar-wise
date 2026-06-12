@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.2
+
+### Added
+
+- Added Environment Canada radar provider using the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer.
+- Canada now auto-selects Environment Canada radar instead of RainViewer.
+- RainViewer remains available as an optional global radar provider.
+
+### Fixed
+
+- Twice-daily-only weather providers continue to use the forecast fallback list added in `0.3.1`.
+
 ## 0.3.1
 
 ### Added

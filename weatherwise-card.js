@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.3.1";
+const CARD_VERSION = "0.3.2";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -17,6 +17,7 @@ const WEATHERWISE_COUNTRIES = {
 const WEATHERWISE_RADAR = {
   auto: "Auto",
   noaa: "US NOAA radar",
+  envcanada: "Environment Canada radar",
   rainviewer: "RainViewer global radar",
   none: "No radar"
 };
@@ -680,14 +681,21 @@ class WeatherWiseCard extends HTMLElement {
     if (this._config.show_radar === false) return "none";
     if (this._config.radar_provider === "none") return "none";
     if (this._config.radar_provider === "noaa") return "noaa";
+    if (this._config.radar_provider === "envcanada") return "envcanada";
     if (this._config.radar_provider === "rainviewer") return "rainviewer";
-    return this._config.country === "us" ? "noaa" : "rainviewer";
+    if (this._config.country === "us") return "noaa";
+    if (this._config.country === "ca") return "envcanada";
+    return "rainviewer";
   }
 
   async _loadRadarLoop(provider) {
     if (!this._radarMap || !window.L) return;
     if (provider === "rainviewer") {
       await this._loadRainViewerLoop();
+      return;
+    }
+    if (provider === "envcanada") {
+      await this._loadEnvCanadaLoop();
       return;
     }
     await this._loadNoaaLoop();
@@ -727,6 +735,29 @@ class WeatherWiseCard extends HTMLElement {
         opacity: index === selectedFrames.length - 1 ? this._radarOpacity() : 0,
         zIndex: 20,
         interactive: false
+      })
+    })));
+    const label = this.shadowRoot?.getElementById("radar-lbl");
+    if (label) label.textContent = `${this._shortTime(selectedFrames.at(-1))} ${this._radarLabelText}`;
+    this._animateRadar(this._radarLabelText);
+  }
+
+  async _loadEnvCanadaLoop() {
+    const frames = this._envCanadaFrames();
+    const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
+    this._radarLabelText = selectedFrames.length === 1 ? "Environment Canada current radar" : "Environment Canada radar loop";
+    this._replaceRadarLayers(selectedFrames.map((frameTime, index) => ({
+      time: frameTime,
+      layer: window.L.tileLayer.wms("https://geo.weather.gc.ca/geomet", {
+        layers: "RADAR_1KM_RRAI",
+        styles: this._envCanadaStyle(),
+        format: "image/png",
+        transparent: true,
+        version: "1.3.0",
+        time: frameTime.toISOString().replace(/\.\d{3}Z$/, "Z"),
+        opacity: index === selectedFrames.length - 1 ? this._radarOpacity() : 0,
+        zIndex: 20,
+        attribution: "Radar &copy; Environment and Climate Change Canada"
       })
     })));
     const label = this.shadowRoot?.getElementById("radar-lbl");
@@ -794,6 +825,12 @@ class WeatherWiseCard extends HTMLElement {
     return Array.from({ length: 12 }, (_, i) => new Date(roundedNow - (11 - i) * stepMs));
   }
 
+  _envCanadaFrames() {
+    const stepMs = 6 * 60 * 1000;
+    const roundedNow = Math.floor(Date.now() / stepMs) * stepMs;
+    return Array.from({ length: 12 }, (_, i) => new Date(roundedNow - (11 - i) * stepMs));
+  }
+
   _rainViewerFrames(data) {
     if (this._config.radar_timeline === "latest") return (data?.radar?.past || []).slice(-1);
     if (this._config.radar_timeline === "future") {
@@ -819,6 +856,15 @@ class WeatherWiseCard extends HTMLElement {
 
   _rainViewerColor() {
     const values = { standard: 2, vivid: 4, soft: 1 };
+    return values[this._config.radar_style] ?? values.standard;
+  }
+
+  _envCanadaStyle() {
+    const values = {
+      standard: "Radar-Rain_14colors",
+      vivid: "RADARURPPRECIPR14",
+      soft: "Radar-Rain_8colors"
+    };
     return values[this._config.radar_style] ?? values.standard;
   }
 
@@ -1318,7 +1364,7 @@ class WeatherWiseCardEditor extends HTMLElement {
               </select>
             </label>
           </div>
-          <div class="hint">Auto uses NOAA radar for the United States and RainViewer global radar for Canada, the UK, and other regions. Future radar is used only when the selected provider exposes future frames.</div>
+          <div class="hint">Auto uses NOAA radar for the United States, Environment Canada radar for Canada, and RainViewer global radar for the UK and other regions. Future radar is used only when the selected provider exposes future frames.</div>
         </div>
         <div class="section">
           <div class="section-title">Display</div>

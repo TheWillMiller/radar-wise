@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/weather-wise?label=stars)](https://github.com/TheWillMiller/weather-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.3.1`
+**Latest release:** `v0.3.2`
 
 WeatherWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, sunrise and sunset, wind, humidity, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -22,15 +22,13 @@ WeatherWise gets weather data from an existing Home Assistant `weather` entity, 
 | Region | Weather data | Radar |
 | --- | --- | --- |
 | United States | Any Home Assistant `weather` entity | NOAA radar by default, RainViewer optional |
-| Canada | Any Home Assistant `weather` entity | RainViewer global radar by default |
+| Canada | Any Home Assistant `weather` entity | Environment Canada radar by default, RainViewer optional |
 | United Kingdom | Any Home Assistant `weather` entity | RainViewer global radar by default |
 | Global / other | Any Home Assistant `weather` entity | RainViewer global radar by default |
 
 WeatherWise does not ask for, store, or call private weather API keys from dashboard YAML.
 
-RainViewer is used only as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
-
-Canada currently uses RainViewer for radar. Native Environment Canada radar is not bundled yet; please open a feature request with the province/region and desired radar layer if you want to help shape that support.
+Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
 
 ### Testing Outside the US, Canada, and UK
 
@@ -119,7 +117,7 @@ type: module
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.3.1/weatherwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.3.2/weatherwise-card.js
 type: module
 ```
 
@@ -219,7 +217,7 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 | `humidity_entity` | No |  | Optional humidity sensor/helper entity. Useful when the weather entity has no humidity attribute. |
 | `title` | No | `Local Weather` | Card title. |
 | `country` | No | `us` | Region hint: `us`, `ca`, `uk`, or `global`. |
-| `radar_provider` | No | `auto` | `auto`, `noaa`, `rainviewer`, or `none`. |
+| `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `rainviewer`, or `none`. |
 | `theme_mode` | No | `weatherwise` | `weatherwise` or `auto`. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, or `compact`. Use `stacked` for Home Assistant Sections cards that are narrow or short. |
