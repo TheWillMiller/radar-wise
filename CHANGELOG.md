@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0-beta.1
+
+### Added
+
+- Added radar playback controls for pause/play, previous frame, and next frame.
+- Added radar style options: standard, high contrast, and soft.
+- Added basemap options: light, dark, and OpenStreetMap street map.
+- Added radar loop speed configuration.
+- Added visual editor controls for the new radar options.
+
+### Fixed
+
+- Fixed hourly rows being clipped in the compact public-beta layout.
+- Changed the default hourly row count from 8 to 5 so the default card fits cleanly.
+- Made larger hourly row counts scroll within the left rail instead of cropping text.
+
 ## 0.1.0-beta.4
 
 ### Fixed

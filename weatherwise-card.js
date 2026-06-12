@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.1.0-beta.4";
+const CARD_VERSION = "0.2.0-beta.1";
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
 const WEATHERWISE_COUNTRIES = {
@@ -20,6 +20,18 @@ const WEATHERWISE_RADAR = {
   none: "No radar"
 };
 
+const WEATHERWISE_RADAR_STYLES = {
+  standard: "Standard",
+  vivid: "High contrast",
+  soft: "Soft"
+};
+
+const WEATHERWISE_BASEMAPS = {
+  light: "Light map",
+  dark: "Dark map",
+  osm: "Street map"
+};
+
 class WeatherWiseCard extends HTMLElement {
   static getStubConfig() {
     return {
@@ -30,8 +42,11 @@ class WeatherWiseCard extends HTMLElement {
       radar_provider: "auto",
       theme_mode: "weatherwise",
       units: "auto",
-      hourly_count: 8,
+      hourly_count: 5,
       show_radar: true,
+      radar_controls: true,
+      radar_style: "standard",
+      radar_basemap: "light",
       latitude: 33.688,
       longitude: -78.886,
       grid_options: {
@@ -60,6 +75,8 @@ class WeatherWiseCard extends HTMLElement {
     this._radarMap = null;
     this._radarLayers = [];
     this._radarIndex = 0;
+    this._radarPlaying = true;
+    this._radarLabelText = "radar loop";
     this._radarProviderRendered = "";
   }
 
@@ -84,6 +101,8 @@ class WeatherWiseCard extends HTMLElement {
       previous.entity !== this._config.entity ||
       previous.country !== this._config.country ||
       previous.radar_provider !== this._config.radar_provider ||
+      previous.radar_style !== this._config.radar_style ||
+      previous.radar_basemap !== this._config.radar_basemap ||
       previous.latitude !== this._config.latitude ||
       previous.longitude !== this._config.longitude ||
       previous.show_radar !== this._config.show_radar
@@ -135,23 +154,33 @@ class WeatherWiseCard extends HTMLElement {
     const units = ["auto", "imperial", "metric"].includes(String(config.units || "auto").toLowerCase())
       ? String(config.units || "auto").toLowerCase()
       : "auto";
+    const radarStyle = String(config.radar_style || "standard").toLowerCase();
+    const radarBasemap = String(config.radar_basemap || "light").toLowerCase();
     return {
       title: "Local Weather",
       country: WEATHERWISE_COUNTRIES[country] ? country : "global",
       radar_provider: WEATHERWISE_RADAR[radarProvider] ? radarProvider : "auto",
       theme_mode: themeMode,
       units,
-      hourly_count: 8,
+      hourly_count: 5,
       show_radar: true,
       show_map_controls: true,
+      radar_controls: true,
+      radar_style: "standard",
+      radar_basemap: "light",
       radar_zoom: 7,
+      radar_speed: 700,
       debug: { enabled: false, panel: false },
       ...config,
+      radar_style: WEATHERWISE_RADAR_STYLES[radarStyle] ? radarStyle : "standard",
+      radar_basemap: WEATHERWISE_BASEMAPS[radarBasemap] ? radarBasemap : "light",
       latitude: this._numberOr(config.latitude, undefined),
       longitude: this._numberOr(config.longitude, undefined),
-      hourly_count: Math.max(1, Math.min(24, Number(config.hourly_count) || 8)),
+      hourly_count: Math.max(1, Math.min(24, Number(config.hourly_count) || 5)),
       show_radar: config.show_radar !== false,
-      show_map_controls: config.show_map_controls !== false
+      show_map_controls: config.show_map_controls !== false,
+      radar_controls: config.radar_controls !== false,
+      radar_speed: Math.max(300, Math.min(3000, Number(config.radar_speed) || 700))
     };
   }
 
@@ -175,9 +204,12 @@ class WeatherWiseCard extends HTMLElement {
         this._config.title,
         this._config.country,
         this._config.radar_provider,
+        this._config.radar_style,
+        this._config.radar_basemap,
         this._config.theme_mode,
         this._config.units,
         this._config.show_radar,
+        this._config.radar_controls,
         this._config.hourly_count
       ]
     });
@@ -278,6 +310,13 @@ class WeatherWiseCard extends HTMLElement {
             ${this._config.show_radar && provider !== "none" ? `
               <section class="right">
                 <div id="rmap"></div>
+                ${this._config.radar_controls === false ? "" : `
+                  <div class="radar-controls" aria-label="Radar playback controls">
+                    <button type="button" data-radar-action="prev" title="Previous radar frame" aria-label="Previous radar frame">&lt;</button>
+                    <button type="button" data-radar-action="play" title="Pause radar loop" aria-label="Pause radar loop">||</button>
+                    <button type="button" data-radar-action="next" title="Next radar frame" aria-label="Next radar frame">&gt;</button>
+                  </div>
+                `}
                 <div class="radar-lbl" id="radar-lbl">Radar loading...</div>
               </section>
             ` : ""}
@@ -289,9 +328,22 @@ class WeatherWiseCard extends HTMLElement {
     if (this._config.show_radar && provider !== "none") {
       this._teardownRadar();
       this._radarProviderRendered = provider;
+      this._wireRadarControls();
       window.requestAnimationFrame(() => this._scheduleRadarInit(provider));
     }
     this._updateClock();
+  }
+
+  _wireRadarControls() {
+    this.shadowRoot?.querySelectorAll("[data-radar-action]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const action = button.dataset.radarAction;
+        if (action === "play") this._toggleRadarPlayback();
+        if (action === "prev") this._stepRadar(-1);
+        if (action === "next") this._stepRadar(1);
+      });
+    });
   }
 
   _scheduleRadarInit(provider) {
@@ -339,7 +391,7 @@ class WeatherWiseCard extends HTMLElement {
 
   _renderHourly(hours, units) {
     if (!hours.length) return `<div class="loading-note">Waiting for hourly forecast.</div>`;
-    const slice = hours.slice(0, Number(this._config.hourly_count) || 8);
+    const slice = hours.slice(0, Number(this._config.hourly_count) || 5);
     const temps = slice.map((item) => this._tempValue(item.temperature, units)).filter(Number.isFinite);
     const min = temps.length ? Math.min(...temps) : 0;
     const max = temps.length ? Math.max(...temps) : 10;
@@ -397,11 +449,8 @@ class WeatherWiseCard extends HTMLElement {
       zoomControl: this._config.show_map_controls !== false,
       attributionControl: true
     });
-    window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap &copy; CARTO"
-    }).addTo(this._radarMap);
+    const basemap = this._basemap();
+    window.L.tileLayer(basemap.url, basemap.options).addTo(this._radarMap);
     window.L.circleMarker([lat, lon], {
       radius: 5,
       color: "#1a3a50",
@@ -477,10 +526,11 @@ class WeatherWiseCard extends HTMLElement {
       const frames = data?.radar?.past || [];
       const host = data?.host || "https://tilecache.rainviewer.com";
       if (!frames.length) throw new Error("No RainViewer frames");
+      this._radarLabelText = "RainViewer radar";
       this._replaceRadarLayers(frames.slice(-12).map((frame, index, list) => ({
         time: new Date(frame.time * 1000),
-        layer: window.L.tileLayer(`${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
-          opacity: index === list.length - 1 ? 0.72 : 0,
+        layer: window.L.tileLayer(`${host}${frame.path}/256/{z}/{x}/{y}/${this._rainViewerColor()}/1_1.png`, {
+          opacity: index === list.length - 1 ? this._radarOpacity() : 0,
           zIndex: 20,
           attribution: "Radar &copy; RainViewer"
         })
@@ -494,10 +544,11 @@ class WeatherWiseCard extends HTMLElement {
 
   async _loadNoaaLoop() {
     const frames = this._noaaFrames();
+    this._radarLabelText = "NOAA radar loop";
     this._replaceRadarLayers(frames.map((frameTime, index) => ({
       time: frameTime,
       layer: window.L.imageOverlay(this._noaaUrl(frameTime), this._radarMap.getBounds(), {
-        opacity: index === frames.length - 1 ? 0.78 : 0,
+        opacity: index === frames.length - 1 ? this._radarOpacity() : 0,
         zIndex: 20,
         interactive: false
       })
@@ -511,19 +562,49 @@ class WeatherWiseCard extends HTMLElement {
     window.clearInterval(this._radarTimer);
     this._radarLayers.forEach((item) => item.layer?.remove?.());
     this._radarLayers = layers;
-    this._radarIndex = 0;
+    this._radarIndex = Math.max(0, layers.length - 1);
     this._radarLayers.forEach((item) => item.layer.addTo(this._radarMap));
+    this._showRadarFrame(this._radarIndex);
   }
 
   _animateRadar(labelText) {
-    const label = this.shadowRoot?.getElementById("radar-lbl");
+    this._radarLabelText = labelText;
     this._radarTimer = window.setInterval(() => {
-      if (!this._radarLayers.length) return;
-      this._radarLayers.forEach((item, index) => item.layer.setOpacity(index === this._radarIndex ? 0.76 : 0));
-      const active = this._radarLayers[this._radarIndex];
-      if (label && active) label.textContent = `${this._shortTime(active.time)} ${labelText}`;
-      this._radarIndex = (this._radarIndex + 1) % this._radarLayers.length;
-    }, 700);
+      if (!this._radarPlaying) return;
+      this._stepRadar(1, false);
+    }, this._config.radar_speed || 700);
+    this._updateRadarPlayButton();
+  }
+
+  _toggleRadarPlayback() {
+    this._radarPlaying = !this._radarPlaying;
+    this._updateRadarPlayButton();
+  }
+
+  _updateRadarPlayButton() {
+    const button = this.shadowRoot?.querySelector('[data-radar-action="play"]');
+    if (!button) return;
+    button.textContent = this._radarPlaying ? "||" : ">";
+    button.title = this._radarPlaying ? "Pause radar loop" : "Play radar loop";
+    button.setAttribute("aria-label", button.title);
+  }
+
+  _stepRadar(delta, pause = true) {
+    if (!this._radarLayers.length) return;
+    if (pause) {
+      this._radarPlaying = false;
+      this._updateRadarPlayButton();
+    }
+    this._radarIndex = (this._radarIndex + delta + this._radarLayers.length) % this._radarLayers.length;
+    this._showRadarFrame(this._radarIndex);
+  }
+
+  _showRadarFrame(index) {
+    if (!this._radarLayers.length) return;
+    this._radarLayers.forEach((item, layerIndex) => item.layer.setOpacity(layerIndex === index ? this._radarOpacity() : 0));
+    const active = this._radarLayers[index];
+    const label = this.shadowRoot?.getElementById("radar-lbl");
+    if (label && active) label.textContent = `${this._shortTime(active.time)} ${this._radarLabelText}`;
   }
 
   _noaaFrames() {
@@ -539,6 +620,34 @@ class WeatherWiseCard extends HTMLElement {
     const ne = bounds.getNorthEast();
     const service = "https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/ImageServer";
     return `${service}/exportImage?bbox=${encodeURIComponent([sw.lng, sw.lat, ne.lng, ne.lat].join(","))}&bboxSR=4326&imageSR=4326&size=${Math.max(256, Math.round(size.x))},${Math.max(256, Math.round(size.y))}&format=png32&transparent=true&f=image&time=${frameTime.getTime()}&_=${Date.now()}`;
+  }
+
+  _radarOpacity() {
+    const values = { standard: 0.76, vivid: 0.9, soft: 0.58 };
+    return values[this._config.radar_style] ?? values.standard;
+  }
+
+  _rainViewerColor() {
+    const values = { standard: 2, vivid: 4, soft: 1 };
+    return values[this._config.radar_style] ?? values.standard;
+  }
+
+  _basemap() {
+    const basemaps = {
+      dark: {
+        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        options: { subdomains: "abcd", maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+      },
+      osm: {
+        url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        options: { maxZoom: 19, attribution: "&copy; OpenStreetMap" }
+      },
+      light: {
+        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        options: { subdomains: "abcd", maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+      }
+    };
+    return basemaps[this._config.radar_basemap] || basemaps.light;
   }
 
   _unitContext(attrs) {
@@ -674,19 +783,20 @@ class WeatherWiseCard extends HTMLElement {
       .card-outer{container-type:inline-size;background:rgba(232,246,250,0.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:22px;border:1px solid rgba(255,255,255,0.42);box-shadow:0 4px 28px rgba(0,0,0,0.10);position:relative;overflow:hidden}
       :host([theme-mode="auto"]) .card-outer{background:linear-gradient(135deg,color-mix(in srgb,var(--card-background-color,#fff) 88%,transparent),color-mix(in srgb,var(--primary-color,#2a7a94) 14%,var(--card-background-color,#fff)))}
       .card-outer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ww-wave) 62%,transparent),transparent)}
-      .card-grid{display:grid;grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%);height:var(--weatherwise-card-height,clamp(380px,20cqw,440px));min-height:0;max-height:var(--weatherwise-card-max-height,480px)}
+      .card-grid{display:grid;grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%);height:var(--weatherwise-card-height,clamp(386px,20cqw,440px));min-height:0;max-height:var(--weatherwise-card-max-height,480px)}
       .card-grid.no-radar{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}
-      .left{min-width:0;display:flex;flex-direction:column;padding:14px 22px 12px;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08));border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
-      .header{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+      .left{min-width:0;display:flex;flex-direction:column;padding:12px 22px 10px;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08));border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
+      .header{display:flex;align-items:baseline;gap:10px;margin-bottom:5px;flex-wrap:wrap}
       .title{font-size:28px;font-weight:800;color:var(--ww-text);white-space:nowrap;letter-spacing:0}
       .subtitle{font-size:13px;color:var(--ww-muted);letter-spacing:.05em;text-transform:uppercase;font-weight:650;white-space:nowrap}
       .clock-row{display:flex;align-items:baseline;gap:8px;line-height:1}
-      .clock-time{font-size:70px;font-weight:500;color:var(--ww-text);letter-spacing:0}
+      .clock-time{font-size:64px;font-weight:500;color:var(--ww-text);letter-spacing:0}
       .clock-ampm{font-size:18px;font-weight:750;color:var(--ww-muted)}
-      .clock-date{font-size:14px;color:var(--ww-muted);font-weight:750;margin-top:8px;margin-bottom:13px}
+      .clock-date{font-size:14px;color:var(--ww-muted);font-weight:750;margin-top:7px;margin-bottom:10px}
       .section-title,.current-label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:750;white-space:nowrap}
-      .hourly-left{display:flex;flex-direction:column;gap:8px}
-      .hour-row{display:grid;grid-template-columns:48px 24px 42px 1fr;align-items:center;gap:8px;min-height:30px;padding:4px 8px;border-radius:10px;background:var(--ww-panel);border:1px solid var(--ww-line)}
+      .hourly-left{display:flex;flex:1;min-height:0;flex-direction:column;gap:7px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:2px}
+      .hourly-left::-webkit-scrollbar{display:none}
+      .hour-row{display:grid;grid-template-columns:48px 24px 42px 1fr;align-items:center;gap:8px;min-height:28px;padding:3px 8px;border-radius:10px;background:var(--ww-panel);border:1px solid var(--ww-line)}
       .hour-time-left{font-size:12px;color:var(--ww-muted);font-weight:750;text-transform:uppercase}
       .hour-icon-left{width:23px;height:23px;display:flex;align-items:center;justify-content:center}
       .hour-temp-left{font-size:13px;font-weight:800;color:var(--ww-text);text-align:right}
@@ -735,6 +845,9 @@ class WeatherWiseCard extends HTMLElement {
       .leaflet-control-zoom a{display:block;text-align:center;text-decoration:none}
       .leaflet-control-attribution{position:absolute;right:0;bottom:0;margin:0;padding:0 5px}
       .radar-lbl{position:absolute;bottom:10px;left:12px;font-size:12px;color:rgba(10,30,46,0.76);background:rgba(255,255,255,0.78);border:1px solid rgba(255,255,255,0.55);padding:4px 10px;border-radius:99px;font-weight:800;z-index:1000;pointer-events:none}
+      .radar-controls{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:1001}
+      .radar-controls button{width:31px;height:31px;border:1px solid rgba(255,255,255,.62);border-radius:999px;background:rgba(255,255,255,.78);color:#0a1e2e;box-shadow:0 2px 10px rgba(10,30,46,.12);font:800 15px/1 var(--ha-font-family-body,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif);display:grid;place-items:center;cursor:pointer;padding:0}
+      .radar-controls button:hover{background:rgba(255,255,255,.94)}
       .leaflet-control-zoom{border:0!important;box-shadow:0 2px 12px rgba(10,30,46,.13)!important}
       .leaflet-control-zoom a{width:34px!important;height:34px!important;line-height:31px!important;color:#0a1e2e!important;background:rgba(255,255,255,.82)!important;border-color:rgba(10,30,46,.10)!important;font-weight:650!important}
       .leaflet-control-attribution{background:rgba(255,255,255,.70)!important;color:rgba(10,30,46,.72)!important}
@@ -743,7 +856,7 @@ class WeatherWiseCard extends HTMLElement {
       .debug-panel{margin-top:10px;background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:8px;font-size:12px;color:var(--ww-muted)}
       .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
       .debug-row code{color:var(--ww-text)}
-      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%)}.left{padding:13px 18px 11px}.center{padding:16px 20px}.clock-time{font-size:60px}.temp-now{font-size:46px}.cond-name{font-size:25px}.daily-strip{min-height:130px;max-height:150px}.hour-row{grid-template-columns:44px 22px 34px 1fr;gap:6px}.stat{padding:6px 8px;gap:7px}}
+      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%)}.left{padding:12px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:58px}.temp-now{font-size:46px}.cond-name{font-size:25px}.daily-strip{min-height:130px;max-height:150px}.hour-row{grid-template-columns:44px 22px 34px 1fr;gap:6px}.stat{padding:6px 8px;gap:7px}}
       @container(max-width:1180px){.card-grid{grid-template-columns:minmax(250px,30%) minmax(0,1fr);height:var(--weatherwise-card-height,clamp(520px,52cqw,620px))}.center{border-right:0}.right{grid-column:1 / -1;height:220px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}#rmap{height:220px}.daily-strip{min-height:150px;max-height:none}}
       @container(max-width:720px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.title{font-size:24px}}
       @media(max-width:760px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.title{font-size:24px}}
@@ -776,8 +889,8 @@ class WeatherWiseCardEditor extends HTMLElement {
   }
 
   _setValue(key, value) {
-    const numberKeys = ["latitude", "longitude", "hourly_count", "radar_zoom"];
-    const booleanKeys = ["show_radar", "show_map_controls"];
+    const numberKeys = ["latitude", "longitude", "hourly_count", "radar_zoom", "radar_speed"];
+    const booleanKeys = ["show_radar", "show_map_controls", "radar_controls"];
     let nextValue = value;
     if (numberKeys.includes(key)) nextValue = value === "" ? undefined : Number(value);
     if (booleanKeys.includes(key)) nextValue = Boolean(value);
@@ -841,8 +954,18 @@ class WeatherWiseCardEditor extends HTMLElement {
                 ${Object.entries(WEATHERWISE_RADAR).map(([value, label]) => `<option value="${value}" ${config.radar_provider === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
+            <label>Radar style
+              <select id="radar_style">
+                ${Object.entries(WEATHERWISE_RADAR_STYLES).map(([value, label]) => `<option value="${value}" ${config.radar_style === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
+            <label>Map style
+              <select id="radar_basemap">
+                ${Object.entries(WEATHERWISE_BASEMAPS).map(([value, label]) => `<option value="${value}" ${config.radar_basemap === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
           </div>
-          <div class="hint">Auto uses NOAA radar for the United States and RainViewer global radar for Canada, the UK, and other regions. UK/Canada weather data still comes from your Home Assistant weather entity.</div>
+          <div class="hint">Auto uses NOAA radar for the United States and RainViewer global radar for Canada, the UK, and other regions. Radar style changes overlay contrast/opacity. Map style changes the base map under the radar.</div>
         </div>
         <div class="section">
           <div class="section-title">Display</div>
@@ -861,7 +984,7 @@ class WeatherWiseCardEditor extends HTMLElement {
                 <option value="auto" ${config.theme_mode === "auto" ? "selected" : ""}>Home Assistant theme</option>
               </select>
             </label>
-            <label>Hourly rows <input id="hourly_count" type="number" min="1" max="24" value="${config.hourly_count || 8}"></label>
+            <label>Hourly rows <input id="hourly_count" type="number" min="1" max="24" value="${config.hourly_count || 5}"></label>
           </div>
         </div>
         <div class="section">
@@ -870,17 +993,19 @@ class WeatherWiseCardEditor extends HTMLElement {
             <label>Latitude <input id="latitude" type="number" step="0.0001" value="${config.latitude ?? ""}"></label>
             <label>Longitude <input id="longitude" type="number" step="0.0001" value="${config.longitude ?? ""}"></label>
             <label>Radar zoom <input id="radar_zoom" type="number" min="3" max="12" value="${config.radar_zoom || 7}"></label>
+            <label>Loop speed <input id="radar_speed" type="number" min="300" max="3000" step="100" value="${config.radar_speed || 700}"></label>
           </div>
           <label class="check"><input id="show_radar" type="checkbox" ${config.show_radar === false ? "" : "checked"}> Show radar panel</label>
           <label class="check"><input id="show_map_controls" type="checkbox" ${config.show_map_controls === false ? "" : "checked"}> Show map controls</label>
+          <label class="check"><input id="radar_controls" type="checkbox" ${config.radar_controls === false ? "" : "checked"}> Show radar playback controls</label>
           <div class="hint">Latitude and longitude control only the radar center. They do not change the selected weather entity.</div>
         </div>
       </div>
     `;
-    ["entity", "country", "radar_provider", "title", "units", "theme_mode", "latitude", "longitude", "hourly_count", "radar_zoom"].forEach((id) => {
+    ["entity", "country", "radar_provider", "radar_style", "radar_basemap", "title", "units", "theme_mode", "latitude", "longitude", "hourly_count", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
-    ["show_radar", "show_map_controls"].forEach((id) => {
+    ["show_radar", "show_map_controls", "radar_controls"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.checked));
     });
   }

@@ -4,7 +4,7 @@
 [![Validate](https://img.shields.io/github/actions/workflow/status/TheWillMiller/weather-wise/validate.yml?branch=main&label=validate)](https://github.com/TheWillMiller/weather-wise/actions/workflows/validate.yml)
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/weather-wise?label=stars)](https://github.com/TheWillMiller/weather-wise/stargazers)
 
-**Latest beta:** `v0.1.0-beta.4`
+**Latest beta:** `v0.2.0-beta.1`
 
 WeatherWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, sunrise and sunset, wind, humidity, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -41,6 +41,8 @@ RainViewer is used only as a no-key global radar option. Its public API is for p
 - Optional radar panel
 - US NOAA radar support
 - RainViewer global radar support for Canada, UK, and other regions
+- Radar playback controls: pause, previous frame, and next frame
+- Radar style, basemap, and loop speed options
 - Hidden YAML-only debug panel
 
 ## Installation
@@ -98,7 +100,7 @@ type: module
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.1.0-beta.4/weatherwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.2.0-beta.1/weatherwise-card.js
 type: module
 ```
 
@@ -178,10 +180,12 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 - Choose a Home Assistant weather entity
 - Choose United States, Canada, United Kingdom, or global/other setup
 - Choose automatic radar, NOAA radar, RainViewer radar, or no radar
+- Choose radar style, map style, and radar loop speed
 - Set title, units, hourly row count, and theme mode
 - Set radar latitude/longitude and zoom
 - Show or hide the radar panel
 - Show or hide map controls
+- Show or hide radar playback controls
 
 ## Configuration
 
@@ -194,9 +198,13 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `rainviewer`, or `none`. |
 | `theme_mode` | No | `weatherwise` | `weatherwise` or `auto`. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
-| `hourly_count` | No | `8` | Number of hourly forecast rows, 1-24. |
+| `hourly_count` | No | `5` | Number of hourly forecast rows, 1-24. More rows can scroll inside compact cards. |
 | `show_radar` | No | `true` | Show or hide the radar panel. |
 | `show_map_controls` | No | `true` | Show or hide map zoom controls. |
+| `radar_controls` | No | `true` | Show or hide radar playback controls. |
+| `radar_style` | No | `standard` | Radar overlay style: `standard`, `vivid`, or `soft`. |
+| `radar_basemap` | No | `light` | Map style: `light`, `dark`, or `osm`. |
+| `radar_speed` | No | `700` | Radar loop speed in milliseconds, 300-3000. |
 | `radar_zoom` | No | `7` | Initial radar zoom. |
 | `latitude` | No | Home Assistant latitude | Radar center latitude. |
 | `longitude` | No | Home Assistant longitude | Radar center longitude. |
