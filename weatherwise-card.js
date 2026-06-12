@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.2.0-beta.4";
+const CARD_VERSION = "0.2.0-beta.5";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -293,6 +293,8 @@ class WeatherWiseCard extends HTMLElement {
     const stateObj = this._hass?.states?.[this._config.entity];
     const attrs = stateObj?.attributes || {};
     const condition = stateObj?.state || "unavailable";
+    const sunStateObj = this._hass?.states?.["sun.sun"];
+    const displayCondition = this._displayCondition(condition, sunStateObj);
     const units = this._unitContext(attrs);
     const temp = this._displayTemp(attrs.temperature, units);
     const humidity = this._humidity(attrs);
@@ -302,7 +304,7 @@ class WeatherWiseCard extends HTMLElement {
     const twiceDaily = this._forecasts.twice_daily || [];
     const mainPeriods = twiceDaily.length ? twiceDaily : daily.length ? daily : hourly;
     const hiLo = this._formatHiLo(daily, hourly, units);
-    const sun = this._hass?.states?.["sun.sun"]?.attributes || {};
+    const sun = sunStateObj?.attributes || {};
     const now = new Date();
     const unavailable = !stateObj || condition === "unavailable" || condition === "unknown";
     const provider = this._resolvedRadarProvider();
@@ -323,10 +325,10 @@ class WeatherWiseCard extends HTMLElement {
             </section>
             <section class="center">
               <div class="current-row">
-                <div class="current-icon">${this._icon(condition, 62)}</div>
+                <div class="current-icon">${this._icon(displayCondition, 62)}</div>
                 <div class="cond-block">
                   <div class="current-label">Current Weather</div>
-                  <div class="cond-name">${unavailable ? "Connect weather in Home Assistant" : this._escape(this._titleCase(condition))}</div>
+                  <div class="cond-name">${unavailable ? "Connect weather in Home Assistant" : this._escape(this._titleCase(displayCondition))}</div>
                   <div class="updated-note">${unavailable ? "Waiting for live weather data" : `Updated ${this._shortTime(now)}`}</div>
                 </div>
                 <div class="temp-block">
@@ -809,7 +811,9 @@ class WeatherWiseCard extends HTMLElement {
   }
 
   _humidity(attrs) {
-    const configured = this._config.humidity_entity ? this._hass?.states?.[this._config.humidity_entity] : null;
+    const configuredEntityId = this._config.humidity_entity;
+    const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
+    const configured = this._isHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
     const values = [
       configured?.state,
       attrs.humidity,
@@ -876,6 +880,18 @@ class WeatherWiseCard extends HTMLElement {
       clear_night: "Clear Night"
     };
     return overrides[raw.toLowerCase()] || fixed.replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _displayCondition(condition, sunStateObj) {
+    const raw = String(condition || "");
+    const normalized = raw.toLowerCase().replace(/[-_]/g, " ");
+    const sunState = String(sunStateObj?.state || "").toLowerCase();
+    const elevation = this._numberOr(sunStateObj?.attributes?.elevation, NaN);
+    const isDaytime = sunState === "above_horizon" || elevation >= 0;
+    if (!isDaytime || !normalized.includes("night")) return raw;
+    if (normalized.includes("clear") || normalized.includes("sunny")) return "sunny";
+    if (normalized.includes("partly") || normalized.includes("cloud")) return "partlycloudy";
+    return raw.replace(/[-_ ]?night/gi, "") || raw;
   }
 
   _escape(value) {
@@ -1016,12 +1032,16 @@ class WeatherWiseCardEditor extends HTMLElement {
   _sensorEntities() {
     return Object.entries(this._hass?.states || {})
       .filter(([entityId]) => entityId.startsWith("sensor.") || entityId.startsWith("input_number."))
-      .filter(([entityId, state]) => {
-        const friendly = String(state.attributes?.friendly_name || "").toLowerCase();
-        const unit = String(state.attributes?.unit_of_measurement || "").toLowerCase();
-        return entityId.toLowerCase().includes("humidity") || friendly.includes("humidity") || unit === "%";
-      })
+      .filter(([entityId, state]) => this._isHumidityEntity(entityId, state))
       .sort(([a], [b]) => a.localeCompare(b));
+  }
+
+  _isHumidityEntity(entityId, state) {
+    if (!entityId) return false;
+    const friendly = String(state?.attributes?.friendly_name || "").toLowerCase();
+    const deviceClass = String(state?.attributes?.device_class || "").toLowerCase();
+    const id = String(entityId).toLowerCase();
+    return deviceClass === "humidity" || id.includes("humidity") || friendly.includes("humidity");
   }
 
   _setValue(key, value) {
@@ -1049,7 +1069,7 @@ class WeatherWiseCardEditor extends HTMLElement {
     const configuredOption = config.entity && !hasConfiguredEntity
       ? `<option value="${this._escape(config.entity)}" selected>${this._escape(config.entity)}</option>`
       : "";
-    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity
+    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity && this._isHumidityEntity(config.humidity_entity, this._hass?.states?.[config.humidity_entity])
       ? `<option value="${this._escape(config.humidity_entity)}" selected>${this._escape(config.humidity_entity)}</option>`
       : "";
     const weatherOptions = entities.map(([entityId, state]) => {

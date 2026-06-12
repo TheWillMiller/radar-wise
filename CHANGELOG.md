@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-beta.5
+
+### Fixed
+
+- Filtered the humidity entity picker so battery, ink, vacuum brush lifespan, and other generic percent sensors are no longer offered as humidity choices.
+- Ignored already-configured humidity fallback entities unless they actually look like humidity sensors.
+- Normalized stale current `*-night` weather states to daytime display conditions when `sun.sun` is above the horizon.
+
 ## 0.2.0-beta.4
 
 ### Changed
