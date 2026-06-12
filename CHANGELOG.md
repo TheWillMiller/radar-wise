@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-beta.6
+
+### Fixed
+
+- Replaced dashboard-level configuration errors with an in-card setup state when no weather entity is selected.
+- Improved wall-panel readability by increasing date, forecast, hourly, and stat text sizes.
+- Enlarged forecast cards and stat rows to use vertical space more effectively in the wide-panel layout.
+
 ## 0.2.0-beta.5
 
 ### Fixed

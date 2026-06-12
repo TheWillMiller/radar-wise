@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.2.0-beta.5";
+const CARD_VERSION = "0.2.0-beta.6";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -38,6 +38,14 @@ const WEATHERWISE_RADAR_TIMELINES = {
   latest: "Current frame",
   future: "Future if available"
 };
+
+function isWeatherWiseHumidityEntity(entityId, state) {
+  if (!entityId) return false;
+  const friendly = String(state?.attributes?.friendly_name || "").toLowerCase();
+  const deviceClass = String(state?.attributes?.device_class || "").toLowerCase();
+  const id = String(entityId).toLowerCase();
+  return deviceClass === "humidity" || id.includes("humidity") || friendly.includes("humidity");
+}
 
 class WeatherWiseCard extends HTMLElement {
   static getStubConfig() {
@@ -108,9 +116,6 @@ class WeatherWiseCard extends HTMLElement {
 
   setConfig(config) {
     const normalized = this._normalizeConfig(config || {});
-    if (!normalized.entity) {
-      throw new Error("WeatherWise requires a weather entity.");
-    }
     const previous = this._config || {};
     this._config = normalized;
     this.setAttribute("theme-mode", this._config.theme_mode);
@@ -289,7 +294,7 @@ class WeatherWiseCard extends HTMLElement {
   }
 
   _render() {
-    if (!this.shadowRoot || !this._config.entity) return;
+    if (!this.shadowRoot) return;
     const stateObj = this._hass?.states?.[this._config.entity];
     const attrs = stateObj?.attributes || {};
     const condition = stateObj?.state || "unavailable";
@@ -306,7 +311,8 @@ class WeatherWiseCard extends HTMLElement {
     const hiLo = this._formatHiLo(daily, hourly, units);
     const sun = sunStateObj?.attributes || {};
     const now = new Date();
-    const unavailable = !stateObj || condition === "unavailable" || condition === "unknown";
+    const needsEntity = !this._config.entity;
+    const unavailable = needsEntity || !stateObj || condition === "unavailable" || condition === "unknown";
     const provider = this._resolvedRadarProvider();
 
     this.shadowRoot.innerHTML = `
@@ -328,8 +334,8 @@ class WeatherWiseCard extends HTMLElement {
                 <div class="current-icon">${this._icon(displayCondition, 62)}</div>
                 <div class="cond-block">
                   <div class="current-label">Current Weather</div>
-                  <div class="cond-name">${unavailable ? "Connect weather in Home Assistant" : this._escape(this._titleCase(displayCondition))}</div>
-                  <div class="updated-note">${unavailable ? "Waiting for live weather data" : `Updated ${this._shortTime(now)}`}</div>
+                  <div class="cond-name">${needsEntity ? "Select a weather entity" : unavailable ? "Connect weather in Home Assistant" : this._escape(this._titleCase(displayCondition))}</div>
+                  <div class="updated-note">${needsEntity ? "Open the card editor to finish setup" : unavailable ? "Waiting for live weather data" : `Updated ${this._shortTime(now)}`}</div>
                 </div>
                 <div class="temp-block">
                   <div class="temp-now">${temp}</div>
@@ -813,7 +819,7 @@ class WeatherWiseCard extends HTMLElement {
   _humidity(attrs) {
     const configuredEntityId = this._config.humidity_entity;
     const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
-    const configured = this._isHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
+    const configured = isWeatherWiseHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
     const values = [
       configured?.state,
       attrs.humidity,
@@ -927,20 +933,20 @@ class WeatherWiseCard extends HTMLElement {
       .card-outer{container-type:inline-size;background:rgba(232,246,250,0.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:22px;border:1px solid rgba(255,255,255,0.42);box-shadow:0 4px 28px rgba(0,0,0,0.10);position:relative;overflow:hidden}
       :host([theme-mode="auto"]) .card-outer{background:linear-gradient(135deg,color-mix(in srgb,var(--card-background-color,#fff) 88%,transparent),color-mix(in srgb,var(--primary-color,#2a7a94) 14%,var(--card-background-color,#fff)))}
       .card-outer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ww-wave) 62%,transparent),transparent)}
-      .card-grid{display:grid;grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%);height:var(--weatherwise-card-height,clamp(386px,20cqw,440px));min-height:0;max-height:var(--weatherwise-card-max-height,480px)}
+      .card-grid{display:grid;grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%);height:var(--weatherwise-card-height,clamp(396px,20cqw,448px));min-height:0;max-height:var(--weatherwise-card-max-height,490px)}
       .card-grid.no-radar{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}
       .left{min-width:0;display:flex;flex-direction:column;padding:18px 22px 10px;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08));border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
       .clock-row{display:flex;align-items:baseline;gap:8px;line-height:1}
       .clock-time{font-size:64px;font-weight:500;color:var(--ww-text);letter-spacing:0}
       .clock-ampm{font-size:18px;font-weight:750;color:var(--ww-muted)}
-      .clock-date{font-size:14px;color:var(--ww-muted);font-weight:750;margin-top:7px;margin-bottom:10px}
-      .section-title,.current-label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:750;white-space:nowrap}
+      .clock-date{font-size:16px;color:var(--ww-muted);font-weight:800;margin-top:8px;margin-bottom:12px}
+      .section-title,.current-label{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:800;white-space:nowrap}
       .hourly-left{display:flex;flex:1;min-height:0;flex-direction:column;gap:7px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:2px}
       .hourly-left::-webkit-scrollbar{display:none}
       .hour-row{display:grid;grid-template-columns:48px 24px 42px 1fr;align-items:center;gap:8px;min-height:28px;padding:3px 8px;border-radius:10px;background:var(--ww-panel);border:1px solid var(--ww-line)}
-      .hour-time-left{font-size:12px;color:var(--ww-muted);font-weight:750;text-transform:uppercase}
+      .hour-time-left{font-size:13px;color:var(--ww-muted);font-weight:800;text-transform:uppercase}
       .hour-icon-left{width:23px;height:23px;display:flex;align-items:center;justify-content:center}
-      .hour-temp-left{font-size:13px;font-weight:800;color:var(--ww-text);text-align:right}
+      .hour-temp-left{font-size:14px;font-weight:850;color:var(--ww-text);text-align:right}
       .hour-bar-wrap{height:7px;border-radius:999px;background:rgba(18,59,83,0.10);position:relative;overflow:hidden}
       .hour-bar-fill{position:absolute;top:0;left:0;height:100%;border-radius:999px;background:linear-gradient(90deg,#58b7c7,var(--ww-wave))}
       .center{min-width:0;display:flex;flex-direction:column;padding:18px 24px;border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
@@ -948,23 +954,23 @@ class WeatherWiseCard extends HTMLElement {
       .current-icon{width:62px;height:62px;flex-shrink:0;display:grid;place-items:center}
       .cond-block{flex:1;min-width:0}
       .cond-name{font-size:28px;font-weight:720;color:var(--ww-text);line-height:1.05;overflow-wrap:anywhere}
-      .updated-note{font-size:11px;color:var(--ww-muted);font-weight:750;margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
+      .updated-note{font-size:12px;color:var(--ww-muted);font-weight:800;margin-top:6px;text-transform:uppercase;letter-spacing:.04em}
       .temp-block{text-align:right;flex-shrink:0;min-width:max-content}
       .temp-now{font-size:52px;font-weight:750;color:var(--ww-text);line-height:1;letter-spacing:0}
       .temp-hilo{font-size:16px;color:var(--ww-muted);font-weight:700;margin-top:8px}
-      .daily-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;min-height:140px;max-height:166px;margin-bottom:8px;flex:1}
+      .daily-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;min-height:156px;max-height:188px;margin-bottom:10px;flex:1}
       .fc-slot{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px 6px;background:var(--ww-panel);border-radius:14px;border:1px solid var(--ww-line);min-width:0}
-      .fc-day{font-size:16px;font-weight:720;color:var(--ww-text);text-transform:uppercase;line-height:1.05;text-align:center}
-      .fc-period{font-size:11px;font-weight:800;color:var(--ww-muted);text-transform:uppercase;letter-spacing:.045em;margin-top:2px;min-height:13px;line-height:1.05;text-align:center}
-      .fc-icon{width:50px;height:50px;margin:2px 0 1px;display:flex;align-items:center;justify-content:center}
-      .fc-icon svg{width:46px;height:46px}
-      .fc-temp{font-size:34px;font-weight:800;color:var(--ww-text);letter-spacing:0;line-height:.95}
-      .stats-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:5px;flex-shrink:0}
-      .stat{background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:7px 10px;display:flex;align-items:center;gap:9px;min-height:50px;min-width:0}
-      .stat-ico{width:21px;height:21px;flex:0 0 21px;color:var(--ww-wave)}
-      .stat-ico svg{width:21px;height:21px}
-      .stat-lbl{font-size:9px;color:var(--ww-muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
-      .stat-val{font-size:14px;font-weight:800;color:var(--ww-text);white-space:nowrap}
+      .fc-day{font-size:18px;font-weight:800;color:var(--ww-text);text-transform:uppercase;line-height:1.05;text-align:center}
+      .fc-period{font-size:12px;font-weight:850;color:var(--ww-muted);text-transform:uppercase;letter-spacing:.045em;margin-top:2px;min-height:14px;line-height:1.05;text-align:center}
+      .fc-icon{width:54px;height:54px;margin:3px 0 2px;display:flex;align-items:center;justify-content:center}
+      .fc-icon svg{width:50px;height:50px}
+      .fc-temp{font-size:38px;font-weight:850;color:var(--ww-text);letter-spacing:0;line-height:.95}
+      .stats-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:6px;flex-shrink:0}
+      .stat{background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:8px 11px;display:flex;align-items:center;gap:10px;min-height:56px;min-width:0}
+      .stat-ico{width:23px;height:23px;flex:0 0 23px;color:var(--ww-wave)}
+      .stat-ico svg{width:23px;height:23px}
+      .stat-lbl{font-size:10px;color:var(--ww-muted);font-weight:850;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+      .stat-val{font-size:16px;font-weight:850;color:var(--ww-text);white-space:nowrap}
       .right{min-width:0;position:relative;overflow:hidden;border-radius:0 22px 22px 0}
       #rmap{width:100%;height:100%;min-height:0}
       .leaflet-container{height:100%;width:100%;position:relative;overflow:hidden;outline-offset:1px;background:#d7dee2;font-family:inherit;font-size:12px;line-height:1.5;z-index:0}
@@ -997,7 +1003,7 @@ class WeatherWiseCard extends HTMLElement {
       .debug-panel{margin-top:10px;background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:8px;font-size:12px;color:var(--ww-muted)}
       .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
       .debug-row code{color:var(--ww-text)}
-      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%)}.left{padding:12px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:58px}.temp-now{font-size:46px}.cond-name{font-size:25px}.daily-strip{min-height:130px;max-height:150px}.hour-row{grid-template-columns:44px 22px 34px 1fr;gap:6px}.stat{padding:6px 8px;gap:7px}}
+      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(300px,24%) minmax(560px,1fr) minmax(430px,32%)}.left{padding:12px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:58px}.clock-date{font-size:15px}.temp-now{font-size:46px}.cond-name{font-size:25px}.daily-strip{min-height:144px;max-height:170px}.fc-day{font-size:17px}.fc-temp{font-size:36px}.hour-row{grid-template-columns:44px 22px 36px 1fr;gap:6px}.stat{padding:7px 9px;gap:8px}.stat-val{font-size:15px}}
       @container(max-width:1180px){.card-grid{grid-template-columns:minmax(250px,30%) minmax(0,1fr);height:var(--weatherwise-card-height,clamp(520px,52cqw,620px))}.center{border-right:0}.right{grid-column:1 / -1;height:220px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}#rmap{height:220px}.daily-strip{min-height:150px;max-height:none}}
       @container(max-width:720px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
       @media(max-width:760px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
@@ -1032,16 +1038,8 @@ class WeatherWiseCardEditor extends HTMLElement {
   _sensorEntities() {
     return Object.entries(this._hass?.states || {})
       .filter(([entityId]) => entityId.startsWith("sensor.") || entityId.startsWith("input_number."))
-      .filter(([entityId, state]) => this._isHumidityEntity(entityId, state))
+      .filter(([entityId, state]) => isWeatherWiseHumidityEntity(entityId, state))
       .sort(([a], [b]) => a.localeCompare(b));
-  }
-
-  _isHumidityEntity(entityId, state) {
-    if (!entityId) return false;
-    const friendly = String(state?.attributes?.friendly_name || "").toLowerCase();
-    const deviceClass = String(state?.attributes?.device_class || "").toLowerCase();
-    const id = String(entityId).toLowerCase();
-    return deviceClass === "humidity" || id.includes("humidity") || friendly.includes("humidity");
   }
 
   _setValue(key, value) {
@@ -1069,7 +1067,7 @@ class WeatherWiseCardEditor extends HTMLElement {
     const configuredOption = config.entity && !hasConfiguredEntity
       ? `<option value="${this._escape(config.entity)}" selected>${this._escape(config.entity)}</option>`
       : "";
-    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity && this._isHumidityEntity(config.humidity_entity, this._hass?.states?.[config.humidity_entity])
+    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity && isWeatherWiseHumidityEntity(config.humidity_entity, this._hass?.states?.[config.humidity_entity])
       ? `<option value="${this._escape(config.humidity_entity)}" selected>${this._escape(config.humidity_entity)}</option>`
       : "";
     const weatherOptions = entities.map(([entityId, state]) => {

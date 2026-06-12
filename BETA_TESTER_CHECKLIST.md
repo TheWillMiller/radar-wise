@@ -4,7 +4,7 @@ Please report:
 
 - Home Assistant version
 - HACS version
-- WeatherWise version, such as `v0.2.0-beta.5`
+- WeatherWise version, such as `v0.2.0-beta.6`
 - Browser/device
 - Weather entity used
 - Country/radar provider
