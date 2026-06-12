@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.2.0-beta.10";
+const CARD_VERSION = "0.2.0-beta.11";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -107,12 +107,14 @@ class WeatherWiseCard extends HTMLElement {
     this._radarPlaying = true;
     this._radarLabelText = "radar loop";
     this._radarProviderRendered = "";
+    this._radarResizeObserver = null;
   }
 
   connectedCallback() {
     if (!this._clockTimer) this._clockTimer = window.setInterval(() => this._updateClock(), 1000);
     this._updateClock();
     this._ensureForecastRefreshTimer();
+    this._resumeRadarIfNeeded();
   }
 
   disconnectedCallback() {
@@ -328,6 +330,8 @@ class WeatherWiseCard extends HTMLElement {
     const hourly = this._forecasts.hourly || [];
     const daily = this._forecasts.daily || [];
     const twiceDaily = this._forecasts.twice_daily || [];
+    const timeline = hourly.length ? hourly : twiceDaily.length ? twiceDaily : daily;
+    const timelineMode = hourly.length ? "hourly" : twiceDaily.length ? "twice_daily" : daily.length ? "daily" : "hourly";
     const mainPeriods = twiceDaily.length ? twiceDaily : daily.length ? daily : hourly;
     const hiLo = this._formatHiLo(daily, hourly, units);
     const sun = sunStateObj?.attributes || {};
@@ -343,13 +347,15 @@ class WeatherWiseCard extends HTMLElement {
         <div class="card-outer">
           <div class="card-grid layout-${this._escape(layout)} ${this._config.show_radar && provider !== "none" ? "" : "no-radar"}" style="--ww-hourly-count:${Math.max(1, Math.min(24, Number(this._config.hourly_count) || 5))}">
             <section class="left">
-              <div class="clock-row">
-                <div class="clock-time" id="clock-time">${this._clockTime(now)}</div>
-                <div class="clock-ampm" id="clock-ampm">${now.getHours() >= 12 ? "PM" : "AM"}</div>
+              <div class="clock-panel">
+                <div class="clock-row">
+                  <div class="clock-time" id="clock-time">${this._clockTime(now)}</div>
+                  <div class="clock-ampm" id="clock-ampm">${now.getHours() >= 12 ? "PM" : "AM"}</div>
+                </div>
+                <div class="clock-date" id="clock-date">${this._longDate(now)}</div>
               </div>
-              <div class="clock-date" id="clock-date">${this._longDate(now)}</div>
-              <div class="section-title">Hourly</div>
-              <div class="hourly-left">${this._renderHourly(hourly, units)}</div>
+              <div class="section-title">${this._timelineTitle(timelineMode)}</div>
+              <div class="hourly-left">${this._renderTimeline(timeline, units, timelineMode)}</div>
             </section>
             <section class="center">
               <div class="current-row">
@@ -456,9 +462,15 @@ class WeatherWiseCard extends HTMLElement {
     if (date) date.textContent = this._longDate(now);
   }
 
-  _renderHourly(hours, units) {
-    if (!hours.length) return `<div class="loading-note">Waiting for hourly forecast.</div>`;
-    const slice = hours.slice(0, Number(this._config.hourly_count) || 5);
+  _timelineTitle(mode) {
+    if (mode === "twice_daily") return "Forecast";
+    if (mode === "daily") return "Daily";
+    return "Hourly";
+  }
+
+  _renderTimeline(periods, units, mode = "hourly") {
+    if (!periods.length) return `<div class="loading-note">Waiting for Home Assistant forecast data.</div>`;
+    const slice = periods.slice(0, Number(this._config.hourly_count) || 5);
     const temps = slice.map((item) => this._tempValue(item.temperature, units)).filter(Number.isFinite);
     const min = temps.length ? Math.min(...temps) : 0;
     const max = temps.length ? Math.max(...temps) : 10;
@@ -468,13 +480,20 @@ class WeatherWiseCard extends HTMLElement {
       const pct = Number.isFinite(temp) ? Math.max(12, Math.round(((temp - min) / range) * 80 + 12)) : 12;
       return `
         <div class="hour-row">
-          <div class="hour-time-left">${this._hour(item.datetime)}</div>
+          <div class="hour-time-left">${this._timelineTime(item, mode)}</div>
           <div class="hour-icon-left">${this._icon(item.condition || item.state, 23)}</div>
           <div class="hour-temp-left">${this._displayTemp(item.temperature, units, false)}</div>
           <div class="hour-bar-wrap"><div class="hour-bar-fill" style="width:${pct}%"></div></div>
         </div>
       `;
     }).join("");
+  }
+
+  _timelineTime(item, mode) {
+    if (mode === "hourly") return this._hour(item.datetime);
+    const day = this._dayName(item.datetime);
+    if (mode === "twice_daily" && item.is_daytime !== undefined) return `${day} ${item.is_daytime ? "Day" : "Night"}`;
+    return day;
   }
 
   _renderDaily(periods, units) {
@@ -528,6 +547,7 @@ class WeatherWiseCard extends HTMLElement {
       }).addTo(this._radarMap);
       this._radarMap.invalidateSize();
       [120, 350, 800, 1600].forEach((delay) => window.setTimeout(() => this._radarMap?.invalidateSize(), delay));
+      this._watchRadarSize(holder, provider);
       await this._loadRadarLoop(provider);
       await this._loadWarningOverlay();
       this._radarMap.on("moveend zoomend", () => {
@@ -546,6 +566,8 @@ class WeatherWiseCard extends HTMLElement {
   _teardownRadar() {
     window.clearInterval(this._radarTimer);
     window.clearTimeout(this._radarReloadTimer);
+    this._radarResizeObserver?.disconnect?.();
+    this._radarResizeObserver = null;
     this._radarLayers.forEach((item) => item.layer?.remove?.());
     this._warningLayer?.remove?.();
     this._radarLayers = [];
@@ -555,6 +577,39 @@ class WeatherWiseCard extends HTMLElement {
       this._radarMap.remove();
       this._radarMap = null;
     }
+  }
+
+  _watchRadarSize(holder, provider) {
+    this._radarResizeObserver?.disconnect?.();
+    if (!window.ResizeObserver) return;
+    let lastSize = "";
+    this._radarResizeObserver = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect || rect.width < 50 || rect.height < 50) return;
+      const nextSize = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+      if (nextSize === lastSize) return;
+      lastSize = nextSize;
+      window.clearTimeout(this._radarReloadTimer);
+      this._radarReloadTimer = window.setTimeout(async () => {
+        if (!this._radarMap) {
+          this._scheduleRadarInit(provider);
+          return;
+        }
+        this._radarMap.invalidateSize();
+        if (!this._radarLayers.length) await this._loadRadarLoop(provider);
+      }, 180);
+    });
+    this._radarResizeObserver.observe(holder);
+  }
+
+  _resumeRadarIfNeeded() {
+    const provider = this._resolvedRadarProvider();
+    if (provider === "none" || this._config.show_radar === false) return;
+    if (this._radarMap) {
+      window.setTimeout(() => this._radarMap?.invalidateSize(), 80);
+      return;
+    }
+    window.requestAnimationFrame(() => this._scheduleRadarInit(provider));
   }
 
   async _loadLeaflet() {
@@ -992,6 +1047,7 @@ class WeatherWiseCard extends HTMLElement {
       .card-grid{display:grid;grid-template-columns:minmax(330px,25%) minmax(620px,1fr) minmax(430px,31%);height:var(--weatherwise-card-height,clamp(450px,24cqw,540px));min-height:0;max-height:var(--weatherwise-card-max-height,580px)}
       .card-grid.no-radar{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}
       .left{min-width:0;display:flex;flex-direction:column;padding:18px 22px 10px;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08));border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
+      .clock-panel{flex-shrink:0}
       .clock-row{display:flex;align-items:baseline;gap:8px;line-height:1}
       .clock-time{font-size:78px;font-weight:550;color:var(--ww-text);letter-spacing:0}
       .clock-ampm{font-size:22px;font-weight:850;color:var(--ww-muted)}
@@ -1092,10 +1148,11 @@ class WeatherWiseCard extends HTMLElement {
       .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
       .debug-row code{color:var(--ww-text)}
       @container(max-width:1500px){.card-grid{grid-template-columns:minmax(310px,25%) minmax(570px,1fr) minmax(410px,31%);height:var(--weatherwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px 1fr;gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
-      @container(max-width:1180px){.card-grid{grid-template-columns:minmax(250px,30%) minmax(0,1fr);height:var(--weatherwise-card-height,clamp(560px,58cqw,680px))}.center{border-right:0}.right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}#rmap{height:240px}.daily-strip{min-height:150px;max-height:none}}
-      .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:1;border-right:0;overflow:visible}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{order:2;border-right:0;overflow:visible}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:3;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
-      @container(max-width:720px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.center{order:1}.left{order:2}.right{order:3}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
-      @media(max-width:760px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left,.center{border-right:0;overflow:visible}.center{order:1}.left{order:2}.right{order:3}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
+      @container(max-width:980px){.card-grid:not(.layout-wide_panel){grid-template-columns:minmax(250px,30%) minmax(0,1fr);height:var(--weatherwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
+      .card-grid.layout-wide_panel{grid-template-columns:minmax(260px,25%) minmax(430px,1fr) minmax(320px,31%);height:var(--weatherwise-card-height,clamp(390px,22cqw,500px))}
+      .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{display:contents}.card-grid.layout-stacked .clock-panel,.card-grid.layout-compact .clock-panel{order:1;padding:18px 22px 0;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:2;border-right:0;overflow:visible}.card-grid.layout-stacked .left>.section-title,.card-grid.layout-compact .left>.section-title{order:3;padding:0 22px;margin-top:4px}.card-grid.layout-stacked .hourly-left,.card-grid.layout-compact .hourly-left{order:4;flex:none;overflow:visible;padding:0 22px 16px}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:5;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
+      @container(max-width:720px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left{display:contents}.clock-panel{order:1;padding:18px 20px 0}.center{order:2;border-right:0;overflow:visible}.left>.section-title{order:3;padding:0 20px}.hourly-left{order:4;flex:none;overflow:visible;padding:0 20px 16px}.right{order:5}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
+      @media(max-width:760px){.card-grid,.card-grid.no-radar{display:flex;flex-direction:column;height:auto;max-height:none}.left{display:contents}.clock-panel{order:1;padding:18px 20px 0}.center{order:2;border-right:0;overflow:visible}.left>.section-title{order:3;padding:0 20px}.hourly-left{order:4;flex:none;overflow:visible;padding:0 20px 16px}.right{order:5}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
       @media(prefers-reduced-motion:reduce){:host([animations]) .ww-sun-rays,:host([animations]) .ww-sun-core,:host([animations]) .ww-cloud,:host([animations]) .ww-rain,:host([animations]) .ww-snow,:host([animations]) .ww-bolt,:host([animations]) .ww-moon,:host([animations]) .ww-moon-glow,:host([animations]) .ww-fog,:host([animations]) .hour-row,:host([animations]) .fc-slot{animation:none!important}:host([animations]) .hour-bar-fill{transition:none!important}}
     `;
   }

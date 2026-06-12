@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0-beta.11
+
+### Changed
+
+- `wide_panel` layout now forces a denser horizontal layout for wider dashboard cards.
+- Stacked and narrow layouts now place clock/date first, current weather and daily forecast second, and the forecast list below.
+- Auto layout now waits until a narrower container before switching out of the horizontal dashboard layout.
+
+### Fixed
+
+- Added twice-daily and daily fallback content for providers that do not expose hourly forecasts.
+- Added radar resize observation so the map can recover after Home Assistant edit/save layout changes without requiring a manual refresh.
+
 ## 0.2.0-beta.10
 
 ### Added
