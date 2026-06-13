@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.6
+
+### Added
+
+- Added an optional playful forecast summary ticker under the date.
+- Added a visual editor toggle and YAML option: `show_forecast_summary`.
+- The summary is generated from existing Home Assistant forecast data, including high/low, condition, and precipitation probability when available.
+
+### Changed
+
+- Forecast summary motion pauses on hover and respects reduced-motion settings.
+
 ## 0.3.5
 
 ### Fixed

@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.3.5";
+const CARD_VERSION = "0.3.6";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -82,6 +82,7 @@ class WeatherWiseCard extends HTMLElement {
       forecast_count: 5,
       show_timeline: true,
       show_forecast: true,
+      show_forecast_summary: true,
       show_radar: true,
       radar_controls: true,
       radar_style: "standard",
@@ -240,6 +241,7 @@ class WeatherWiseCard extends HTMLElement {
       forecast_count: 5,
       show_timeline: true,
       show_forecast: true,
+      show_forecast_summary: true,
       show_radar: true,
       show_map_controls: true,
       radar_controls: true,
@@ -262,6 +264,7 @@ class WeatherWiseCard extends HTMLElement {
       forecast_count: Math.max(1, Math.min(7, Number(config.forecast_count) || 5)),
       show_timeline: config.show_timeline !== false,
       show_forecast: config.show_forecast !== false,
+      show_forecast_summary: config.show_forecast_summary !== false,
       show_radar: config.show_radar !== false,
       show_map_controls: config.show_map_controls !== false,
       radar_controls: config.radar_controls !== false,
@@ -304,6 +307,7 @@ class WeatherWiseCard extends HTMLElement {
         this._config.show_radar,
         this._config.show_timeline,
         this._config.show_forecast,
+        this._config.show_forecast_summary,
         this._config.radar_controls,
         this._config.show_warning_overlay,
         this._config.hourly_count,
@@ -368,6 +372,7 @@ class WeatherWiseCard extends HTMLElement {
     const unavailable = needsEntity || !stateObj || condition === "unavailable" || condition === "unknown";
     const provider = this._resolvedRadarProvider();
     const layout = this._config.layout || "auto";
+    const forecastSummary = this._forecastSummary({ hourly, daily, twiceDaily, units, condition: displayCondition });
 
     this.shadowRoot.innerHTML = `
       <style>${this._styles()}</style>
@@ -381,6 +386,7 @@ class WeatherWiseCard extends HTMLElement {
                   <div class="clock-ampm" id="clock-ampm">${now.getHours() >= 12 ? "PM" : "AM"}</div>
                 </div>
                 <div class="clock-date" id="clock-date">${this._longDate(now)}</div>
+                ${this._config.show_forecast_summary === false ? "" : `<div class="forecast-summary" title="${this._escape(forecastSummary)}"><span class="forecast-summary-text">${this._escape(forecastSummary)}</span></div>`}
               </div>
               ${this._config.show_timeline === false ? "" : `
                 <div class="section-title">${this._timelineTitle(timelineMode)}</div>
@@ -544,6 +550,86 @@ class WeatherWiseCard extends HTMLElement {
         </div>
       `;
     }).join("");
+  }
+
+  _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
+    const parts = [];
+    const todayHigh = this._summaryHigh(daily, hourly, units);
+    const todayChance = this._summaryPrecipChance([...(hourly || []).slice(0, 8), daily?.[0], twiceDaily?.[0]]);
+    const nowPhrase = this._conditionWords(condition);
+    let opener = `Forecast vibe: ${nowPhrase}`;
+    if (Number.isFinite(todayHigh)) opener += ` with a high near ${Math.round(todayHigh)}°`;
+    if (Number.isFinite(todayChance)) opener += ` and a ${Math.round(todayChance)}% chance of sky shenanigans`;
+    parts.push(`${opener}.`);
+
+    const tonight = this._firstNightPeriod(twiceDaily, daily);
+    if (tonight) {
+      const tonightTemp = this._tempValue(tonight.templow ?? tonight.low_temperature ?? tonight.temperature, units);
+      const tonightChance = this._precipProbability(tonight);
+      const tonightWords = this._conditionWords(tonight.condition || tonight.state);
+      const bits = [`Tonight looks ${tonightWords}`];
+      if (Number.isFinite(tonightTemp)) bits.push(`with a low around ${Math.round(tonightTemp)}°`);
+      if (Number.isFinite(tonightChance)) bits.push(`${Math.round(tonightChance)}% chance of weather mischief`);
+      parts.push(`${bits.join(", ")}.`);
+    }
+
+    const tomorrow = this._tomorrowPeriod(twiceDaily, daily, hourly);
+    if (tomorrow) {
+      const tomorrowTemp = this._tempValue(tomorrow.temperature ?? tomorrow.high_temperature, units);
+      const tomorrowChance = this._precipProbability(tomorrow);
+      const tomorrowWords = this._conditionWords(tomorrow.condition || tomorrow.state);
+      const bits = [`Tomorrow brings ${tomorrowWords}`];
+      if (Number.isFinite(tomorrowTemp)) bits.push(`near ${Math.round(tomorrowTemp)}°`);
+      if (Number.isFinite(tomorrowChance)) bits.push(`${Math.round(tomorrowChance)}% chance of extra drama`);
+      parts.push(`${bits.join(", ")}.`);
+    }
+
+    return parts.join(" ");
+  }
+
+  _summaryHigh(daily, hourly, units) {
+    const dailyHigh = this._tempValue(daily?.[0]?.temperature ?? daily?.[0]?.high_temperature, units);
+    if (Number.isFinite(dailyHigh)) return dailyHigh;
+    const temps = (hourly || []).slice(0, 12).map((item) => this._tempValue(item.temperature, units)).filter(Number.isFinite);
+    return temps.length ? Math.max(...temps) : NaN;
+  }
+
+  _summaryPrecipChance(items) {
+    const values = (items || []).map((item) => this._precipProbability(item)).filter(Number.isFinite);
+    return values.length ? Math.max(...values) : NaN;
+  }
+
+  _firstNightPeriod(twiceDaily, daily) {
+    return (twiceDaily || []).find((item) => item.is_daytime === false || /night/i.test(String(item.name || "")))
+      || daily?.[0]
+      || null;
+  }
+
+  _tomorrowPeriod(twiceDaily, daily, hourly) {
+    return (twiceDaily || []).find((item, index) => index > 0 && item.is_daytime !== false)
+      || daily?.[1]
+      || hourly?.[12]
+      || null;
+  }
+
+  _conditionWords(condition) {
+    const value = String(condition || "weather").replace(/[-_]+/g, " ").trim().toLowerCase();
+    const phrases = {
+      sunny: "sunny and doing sunny things",
+      "clear night": "clear and calm",
+      "partly cloudy": "partly cloudy with some personality",
+      cloudy: "cloudy but still behaving",
+      rainy: "rainy, so keep the umbrella nearby",
+      pouring: "pouring with commitment",
+      lightning: "stormy with a little attitude",
+      "lightning rainy": "stormy with a little attitude",
+      snowy: "snowy and dramatic",
+      "snowy rainy": "messy wintry weather",
+      fog: "foggy and mysterious",
+      windy: "breezy enough to notice",
+      "windy variant": "breezy enough to notice"
+    };
+    return phrases[value] || value || "weather";
   }
 
   _stat(kind, label, value) {
@@ -1234,6 +1320,10 @@ class WeatherWiseCard extends HTMLElement {
       .clock-time{font-size:78px;font-weight:550;color:var(--ww-text);letter-spacing:0}
       .clock-ampm{font-size:22px;font-weight:850;color:var(--ww-muted)}
       .clock-date{font-size:19px;color:var(--ww-muted);font-weight:850;margin-top:10px;margin-bottom:16px}
+      .forecast-summary{container-type:inline-size;margin:0 0 14px;min-height:30px;max-width:100%;overflow:hidden;border:1px solid var(--ww-line);border-radius:999px;background:rgba(255,255,255,.20);box-shadow:inset 0 1px 0 rgba(255,255,255,.20);mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+      .forecast-summary-text{display:inline-block;padding:7px 18px;font-size:13px;line-height:1.15;color:var(--ww-muted);font-weight:900;white-space:nowrap}
+      :host([animations]) .forecast-summary-text{animation:ww-summary-drift 34s linear infinite}
+      .forecast-summary:hover .forecast-summary-text{animation-play-state:paused}
       .section-title,.current-label{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:850;white-space:nowrap}
       .hourly-left{display:flex;flex:1;min-height:0;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:2px}
       .hourly-left::-webkit-scrollbar{display:none}
@@ -1300,6 +1390,7 @@ class WeatherWiseCard extends HTMLElement {
       @keyframes ww-fog-slide{0%,100%{transform:translateX(-1px);opacity:.76}50%{transform:translateX(2px);opacity:1}}
       @keyframes ww-row-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       @keyframes ww-card-rise{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes ww-summary-drift{0%,8%{transform:translateX(0)}92%,100%{transform:translateX(min(0px, calc(100cqw - 100% - 38px)))}}
       .right{min-width:0;position:relative;overflow:hidden;border-radius:0 22px 22px 0}
       #rmap{width:100%;height:100%;min-height:0}
       .leaflet-container{height:100%;width:100%;position:relative;overflow:hidden;outline-offset:1px;background:#d7dee2;font-family:inherit;font-size:12px;line-height:1.5;z-index:0}
@@ -1342,13 +1433,13 @@ class WeatherWiseCard extends HTMLElement {
       .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
       .debug-row code{color:var(--ww-text)}
       .card-grid.no-forecast .daily-strip{display:none}.card-grid.no-forecast .center{justify-content:center}
-      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(310px,25%) minmax(570px,1fr) minmax(410px,31%);height:var(--weatherwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
+      @container(max-width:1500px){.card-grid{grid-template-columns:minmax(310px,25%) minmax(570px,1fr) minmax(410px,31%);height:var(--weatherwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px;margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:12px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
       @container(max-width:980px){.card-grid:not(.layout-wide_panel){grid-template-columns:minmax(250px,30%) minmax(0,1fr);height:var(--weatherwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
       .card-grid.layout-wide_panel{grid-template-columns:minmax(260px,25%) minmax(430px,1fr) minmax(320px,31%);height:var(--weatherwise-card-height,clamp(390px,22cqw,500px))}
       .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{display:contents}.card-grid.layout-stacked .clock-panel,.card-grid.layout-compact .clock-panel{order:1;padding:18px 22px 0;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:2;border-right:0;overflow:visible}.card-grid.layout-stacked .left>.section-title,.card-grid.layout-compact .left>.section-title{order:3;padding:0 22px;margin-top:4px}.card-grid.layout-stacked .hourly-left,.card-grid.layout-compact .hourly-left{order:4;flex:none;overflow:visible;padding:0 22px 16px}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:5;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
-      @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:2;border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:3;padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:4;flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:5}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%);height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:38px}.card-grid.layout-wide_panel .clock-date{font-size:12px;margin:5px 0 8px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:21px}.card-grid.layout-wide_panel .temp-now{font-size:38px}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:28px}.card-grid.layout-wide_panel .stats-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
+      @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:2;border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:3;padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:4;flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:5}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%);height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:38px}.card-grid.layout-wide_panel .clock-date{font-size:12px;margin:5px 0 7px}.card-grid.layout-wide_panel .forecast-summary{min-height:26px;margin-bottom:8px}.card-grid.layout-wide_panel .forecast-summary-text{font-size:11px;padding:6px 14px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:21px}.card-grid.layout-wide_panel .temp-now{font-size:38px}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:28px}.card-grid.layout-wide_panel .stats-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
       @media(max-width:760px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:2;border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:3;padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:4;flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:5}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
-      @media(prefers-reduced-motion:reduce){:host([animations]) .ww-sun-rays,:host([animations]) .ww-sun-core,:host([animations]) .ww-cloud,:host([animations]) .ww-rain,:host([animations]) .ww-snow,:host([animations]) .ww-bolt,:host([animations]) .ww-moon,:host([animations]) .ww-moon-glow,:host([animations]) .ww-fog,:host([animations]) .hour-row,:host([animations]) .fc-slot{animation:none!important}:host([animations]) .hour-bar-fill{transition:none!important}}
+      @media(prefers-reduced-motion:reduce){:host([animations]) .ww-sun-rays,:host([animations]) .ww-sun-core,:host([animations]) .ww-cloud,:host([animations]) .ww-rain,:host([animations]) .ww-snow,:host([animations]) .ww-bolt,:host([animations]) .ww-moon,:host([animations]) .ww-moon-glow,:host([animations]) .ww-fog,:host([animations]) .hour-row,:host([animations]) .fc-slot,:host([animations]) .forecast-summary-text{animation:none!important}:host([animations]) .hour-bar-fill{transition:none!important}}
     `;
   }
 }
@@ -1409,7 +1500,7 @@ class WeatherWiseCardEditor extends HTMLElement {
 
   _setValue(key, value) {
     const numberKeys = ["latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"];
-    const booleanKeys = ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast"];
+    const booleanKeys = ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary"];
     let nextValue = value;
     if (numberKeys.includes(key)) nextValue = value === "" ? undefined : Number(value);
     if (booleanKeys.includes(key)) nextValue = Boolean(value);
@@ -1549,6 +1640,7 @@ class WeatherWiseCardEditor extends HTMLElement {
             <label>Forecast list rows <input id="hourly_count" type="number" min="1" max="24" value="${this._escape(config.hourly_count || 5)}"></label>
             <label>Forecast cards <input id="forecast_count" type="number" min="1" max="7" value="${this._escape(config.forecast_count || 5)}"></label>
           </div>
+          <label class="check"><input id="show_forecast_summary" type="checkbox" ${config.show_forecast_summary === false ? "" : "checked"}> Show playful forecast summary</label>
           <label class="check"><input id="show_timeline" type="checkbox" ${config.show_timeline === false ? "" : "checked"}> Show hourly / forecast list</label>
           <label class="check"><input id="show_forecast" type="checkbox" ${config.show_forecast === false ? "" : "checked"}> Show daily forecast cards</label>
           <label class="check"><input id="show_animations" type="checkbox" ${config.show_animations === false ? "" : "checked"}> Subtle weather animations</label>
@@ -1573,7 +1665,7 @@ class WeatherWiseCardEditor extends HTMLElement {
     ["entity", "temperature_entity", "humidity_entity", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "layout", "latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
-    ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast"].forEach((id) => {
+    ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.checked));
     });
   }
