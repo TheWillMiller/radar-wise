@@ -5,13 +5,15 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/weather-wise?label=stars)](https://github.com/TheWillMiller/weather-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.3.7`
+**Latest release:** `v0.4.1`
 
 WeatherWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
 ![WeatherWise dashboard preview](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/preview.png)
 
-![WeatherWise visual editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/visual-editor.png)
+![WeatherWise visual editor layout controls](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-display-layout.png)
+
+![WeatherWise radar alert popup](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/radar-alert-popup.png)
 
 > **Public release note:** WeatherWise is ready for regular use, but weather providers vary by region. Please report provider-specific layout, radar, or forecast quirks so support can keep improving.
 
@@ -53,13 +55,19 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 - Optional localized forecast summary ticker
 - Hourly forecast strip
 - Daily or twice-daily forecast cards
+- Auto-scroll option for long forecast lists
 - Precipitation probability and amount when exposed by the weather provider
 - Fahrenheit and Celsius support
+- Card language support for Auto, English, French, Spanish, German, and Portuguese
 - WeatherWise built-in theme mode
 - Home Assistant theme-aware mode with `theme_mode: auto`
+- Layout presets: auto, wide panel, stacked, radar bottom, and compact
+- Drag-and-drop panel ordering for clock/timeline, current weather, and radar
+- Adjustable panel widths with a configurable vertical-collapse threshold
 - Optional radar panel
 - US NOAA radar support
-- RainViewer global radar support for Canada, UK, and other regions
+- Environment Canada radar support
+- RainViewer global radar support for the UK, global regions, and optional Canada fallback
 - Radar playback controls: pause, previous frame, and next frame
 - Radar timeline, style, basemap, and loop speed options
 - US NWS active warning overlay
@@ -120,7 +128,7 @@ type: module
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.3.7/weatherwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.4.1/weatherwise-card.js
 type: module
 ```
 
@@ -136,6 +144,9 @@ country: us
 radar_provider: auto
 theme_mode: weatherwise
 units: auto
+layout: auto
+forecast_count: 5
+hourly_count: 5
 latitude: 33.688
 longitude: -78.886
 grid_options:
@@ -203,16 +214,34 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 - Choose United States, Canada, United Kingdom, or global/other setup
 - Choose automatic radar, NOAA radar, RainViewer radar, or no radar
 - Choose radar timeline, style, map style, and radar loop speed
-- Set title, units, layout, forecast counts, and theme mode
+- Set title, units, forecast counts, language, and theme mode
 - Choose card language: Auto, English, French, Spanish, German, or Portuguese
+- Choose a layout preset with visual layout tiles
+- Drag panels to reorder clock/timeline, current weather, and radar
+- Adjust panel widths and choose when the card collapses to vertical layout
 - Show or hide the forecast summary
 - Show or hide the hourly/forecast list and daily forecast cards
+- Enable optional auto-scroll for long forecast lists
 - Enable or disable subtle weather animations
 - Set radar latitude/longitude and zoom
 - Show or hide the radar panel
 - Show or hide map controls
 - Show or hide radar playback controls
 - Show or hide the US NWS warning overlay
+
+### Visual Editor Screenshots
+
+Weather source and radar setup:
+
+![WeatherWise weather source and radar editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-weather-source-radar.png)
+
+Display, layout, panel order, widths, and forecast controls:
+
+![WeatherWise display and layout editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-display-layout.png)
+
+Radar location and map controls:
+
+![WeatherWise radar location editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-radar-location.png)
 
 ## Configuration
 
@@ -228,12 +257,16 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 | `theme_mode` | No | `weatherwise` | `weatherwise` or `auto`. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, or `pt`. Auto follows Home Assistant/browser language when possible. |
-| `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, or `compact`. Use `stacked` for Home Assistant Sections cards that are narrow or short. |
+| `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, `radar_bottom`, or `compact`. Use `radar_bottom` for a full-width radar below weather content, or `stacked`/`compact` for narrow dashboards. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, WeatherWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_timeline` | No | `true` | Show or hide the left hourly/forecast list. |
 | `show_forecast` | No | `true` | Show or hide the daily/twice-daily forecast card strip. |
+| `timeline_autoscroll` | No | `false` | Slowly auto-scroll long forecast lists. Manual scrolling pauses it briefly. |
+| `panel_order` | No | `["clock", "weather", "radar"]` | Order of the three major panels. Values must include `clock`, `weather`, and `radar`. |
+| `column_widths` | No | `[25, 50, 25]` | Percentage widths for the ordered panels. Total should equal 100. |
+| `stack_below` | No | `0` | Pixel width threshold for forcing vertical layout. Use `0` or leave unset to disable. |
 | `show_animations` | No | `true` | Show subtle weather icon, forecast, and hourly row animations. Respects reduced-motion settings. |
 | `show_radar` | No | `true` | Show or hide the radar panel. |
 | `show_map_controls` | No | `true` | Show or hide map zoom controls. |

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.1
+
+### Changed
+
+- Updated release-facing documentation for the expanded visual editor, layout controls, and radar alert behavior.
+- Added current README screenshots for weather source/radar setup, display/layout controls, radar location controls, and radar alert popups.
+- Aligned the card runtime version and package version with the `v0.4.1` release.
+
+## 0.4.0
+
+### Added
+
+- Added visual layout tiles for `auto`, `wide_panel`, `stacked`, `radar_bottom`, and `compact`.
+- Added drag-and-drop panel ordering for clock/timeline, current weather, and radar panels.
+- Added panel width controls and a reset button for custom dashboard proportions.
+- Added `stack_below` so users can force vertical layout below a chosen card width.
+- Added optional `timeline_autoscroll` for long hourly/forecast lists.
+- Added the `radar_bottom` layout for wide radar below weather content.
+
+### Changed
+
+- Expanded the visual editor display section to expose more layout and forecast controls without YAML.
+- Improved wide and Sections-dashboard tuning for users who want the card to fit landscape tablets and wall panels.
+
 ## 0.3.7
 
 ### Added

@@ -9,7 +9,7 @@ body:
     id: weatherwise_version
     attributes:
       label: WeatherWise version
-      placeholder: v0.3.7
+      placeholder: v0.4.1
     validations:
       required: true
   - type: input
@@ -45,6 +45,7 @@ body:
       options:
         - Auto
         - US NOAA radar
+        - Environment Canada radar
         - RainViewer global radar
         - No radar
     validations:
