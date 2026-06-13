@@ -1,25 +1,25 @@
-# WeatherWise
+# RadarWise
 
-[![GitHub release](https://img.shields.io/github/v/release/TheWillMiller/weather-wise)](https://github.com/TheWillMiller/weather-wise/releases)
-[![Validate](https://img.shields.io/github/actions/workflow/status/TheWillMiller/weather-wise/validate.yml?branch=main&label=validate)](https://github.com/TheWillMiller/weather-wise/actions/workflows/validate.yml)
-[![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/weather-wise?label=stars)](https://github.com/TheWillMiller/weather-wise/stargazers)
+[![GitHub release](https://img.shields.io/github/v/release/TheWillMiller/radar-wise)](https://github.com/TheWillMiller/radar-wise/releases)
+[![Validate](https://img.shields.io/github/actions/workflow/status/TheWillMiller/radar-wise/validate.yml?branch=main&label=validate)](https://github.com/TheWillMiller/radar-wise/actions/workflows/validate.yml)
+[![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.4.2`
+**Latest release:** `v0.5.0`
 
-WeatherWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
+RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
-![WeatherWise dashboard preview](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/preview.png)
+![RadarWise dashboard preview](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/preview.png)
 
-![WeatherWise visual editor layout controls](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-display-layout.png)
+![RadarWise visual editor layout controls](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/editor-display-layout.png)
 
-![WeatherWise radar alert popup](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/radar-alert-popup.png)
+![RadarWise radar alert popup](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/radar-alert-popup.png)
 
-> **Public release note:** WeatherWise is ready for regular use, but weather providers vary by region. Please report provider-specific layout, radar, or forecast quirks so support can keep improving.
+> **Public release note:** RadarWise is ready for regular use, but weather providers vary by region. Please report provider-specific layout, radar, or forecast quirks so support can keep improving.
 
 ## Region Support
 
-WeatherWise gets weather data from an existing Home Assistant `weather` entity, so it can work anywhere Home Assistant has a weather provider.
+RadarWise gets weather data from an existing Home Assistant `weather` entity, so it can work anywhere Home Assistant has a weather provider.
 
 | Region | Weather data | Radar |
 | --- | --- | --- |
@@ -28,13 +28,13 @@ WeatherWise gets weather data from an existing Home Assistant `weather` entity, 
 | United Kingdom | Any Home Assistant `weather` entity | RainViewer global radar by default |
 | Global / other | Any Home Assistant `weather` entity | RainViewer global radar by default |
 
-WeatherWise does not ask for, store, or call private weather API keys from dashboard YAML.
+RadarWise does not ask for, store, or call private weather API keys from dashboard YAML.
 
 Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
 
 ### Testing Outside the US, Canada, and UK
 
-WeatherWise should still render current conditions and forecasts anywhere Home Assistant has a working `weather` entity. Outside the initial US, Canada, and UK presets, radar falls back to RainViewer and local alert/warning overlays may be limited or unavailable.
+RadarWise should still render current conditions and forecasts anywhere Home Assistant has a working `weather` entity. Outside the initial US, Canada, and UK presets, radar falls back to RainViewer and local alert/warning overlays may be limited or unavailable.
 
 If you are testing from Australia, New Zealand, Europe, or any other region, please open a report or feature request with:
 
@@ -42,12 +42,12 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 - Home Assistant weather integration/provider
 - Whether hourly and daily forecasts appear
 - Whether RainViewer radar loads for your area
-- Any local radar, warning, or forecast provider WeatherWise should know about
+- Any local radar, warning, or forecast provider RadarWise should know about
 
 ## Features
 
-- Custom Lovelace card: `custom:weatherwise-card`
-- Legacy alias: `custom:weather-wise-card`
+- Custom Lovelace card: `custom:radarwise-card`
+- Legacy alias: `custom:radar-wise-card`
 - Home Assistant visual editor
 - Existing `weather` entity support
 - Optional local temperature sensor override
@@ -60,7 +60,7 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 - Precipitation probability and amount when exposed by the weather provider
 - Fahrenheit and Celsius support
 - Card language support for Auto, English, French, Spanish, German, and Portuguese
-- WeatherWise built-in theme mode
+- RadarWise built-in theme mode
 - Home Assistant theme-aware mode with `theme_mode: auto`
 - Layout presets: auto, wide panel, stacked, radar bottom, and compact
 - Drag-and-drop panel ordering for clock/timeline, current weather, and radar
@@ -78,9 +78,9 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 
 ### Recommended: HACS Custom Repository
 
-[![Open WeatherWise in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TheWillMiller&repository=weather-wise&category=plugin)
+[![Open RadarWise in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TheWillMiller&repository=radar-wise&category=plugin)
 
-WeatherWise is not yet listed in the default/searchable HACS store. Until it is accepted into the default HACS list, install it as a custom HACS repository.
+RadarWise is not yet listed in the default/searchable HACS store. Until it is accepted into the default HACS list, install it as a custom HACS repository.
 
 1. Open **HACS** in Home Assistant.
 2. Open the three-dot menu in the top right.
@@ -88,11 +88,11 @@ WeatherWise is not yet listed in the default/searchable HACS store. Until it is 
 4. Add this repository URL:
 
 ```text
-https://github.com/TheWillMiller/weather-wise
+https://github.com/TheWillMiller/radar-wise
 ```
 
 5. For category, choose **Dashboard**.
-6. Install **WeatherWise**.
+6. Install **RadarWise**.
 7. Refresh Home Assistant.
 
 A hard browser refresh is recommended after installing or updating:
@@ -104,7 +104,7 @@ Then add the card from your dashboard editor:
 
 1. Edit your dashboard.
 2. Add a new card.
-3. Search for **WeatherWise**.
+3. Search for **RadarWise**.
 4. Open the visual editor.
 5. Choose a weather entity.
 6. Choose the region/radar setup.
@@ -112,12 +112,12 @@ Then add the card from your dashboard editor:
 
 ### Manual Install
 
-1. Download or copy `weatherwise-card.js`.
+1. Download or copy `radarwise-card.js`.
 2. Place it in your Home Assistant `www` directory.
 3. Add it as a dashboard resource:
 
 ```yaml
-url: /local/weatherwise-card.js
+url: /local/radarwise-card.js
 type: module
 ```
 
@@ -129,7 +129,7 @@ type: module
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/weather-wise@v0.4.2/weatherwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.5.0/radarwise-card.js
 type: module
 ```
 
@@ -138,12 +138,12 @@ CDN testing is not the preferred long-term install method. HACS is recommended f
 ## Quick Start
 
 ```yaml
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather
 country: us
 radar_provider: auto
-theme_mode: weatherwise
+theme_mode: radarwise
 units: auto
 layout: auto
 forecast_count: 5
@@ -158,12 +158,12 @@ grid_options:
 ## Canada Example
 
 ```yaml
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather
 country: ca
 radar_provider: auto
-theme_mode: weatherwise
+theme_mode: radarwise
 units: metric
 latitude: 43.6532
 longitude: -79.3832
@@ -175,7 +175,7 @@ grid_options:
 ## UK Example
 
 ```yaml
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather
 country: uk
@@ -191,10 +191,10 @@ grid_options:
 
 ## Theme Support
 
-WeatherWise defaults to its built-in glass styling:
+RadarWise defaults to its built-in glass styling:
 
 ```yaml
-theme_mode: weatherwise
+theme_mode: radarwise
 ```
 
 To make the card follow Home Assistant theme colors more closely, use:
@@ -207,7 +207,7 @@ The visual editor includes a **Theme** dropdown for this setting.
 
 ## Visual Editor
 
-WeatherWise includes a Home Assistant visual editor. When adding the card from the dashboard editor, you can:
+RadarWise includes a Home Assistant visual editor. When adding the card from the dashboard editor, you can:
 
 - Choose a Home Assistant weather entity
 - Choose an optional local temperature sensor when the weather entity is not local enough
@@ -235,33 +235,33 @@ WeatherWise includes a Home Assistant visual editor. When adding the card from t
 
 Weather source and radar setup:
 
-![WeatherWise weather source and radar editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-weather-source-radar.png)
+![RadarWise weather source and radar editor](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/editor-weather-source-radar.png)
 
 Display, layout, panel order, widths, and forecast controls:
 
-![WeatherWise display and layout editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-display-layout.png)
+![RadarWise display and layout editor](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/editor-display-layout.png)
 
 Radar location and map controls:
 
-![WeatherWise radar location editor](https://raw.githubusercontent.com/TheWillMiller/weather-wise/main/docs/editor-radar-location.png)
+![RadarWise radar location editor](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/editor-radar-location.png)
 
 ## Configuration
 
 | Option | Required | Default | Description |
 | --- | --- | --- | --- |
-| `type` | Yes |  | Use `custom:weatherwise-card`. The legacy `custom:weather-wise-card` alias also works. |
+| `type` | Yes |  | Use `custom:radarwise-card`. The legacy `custom:radar-wise-card` alias also works. |
 | `entity` | Yes |  | Home Assistant `weather` entity. |
 | `temperature_entity` | No |  | Optional temperature sensor/helper entity for the current displayed temperature. Useful when an indoor, patio, or hyperlocal sensor differs from the weather provider. |
 | `humidity_entity` | No |  | Optional humidity sensor/helper entity. Useful when the weather entity has no humidity attribute. |
-| `dew_point_entity` | No |  | Optional dew point sensor/helper entity. WeatherWise also auto-reads common dew point attributes from the weather entity when available. |
+| `dew_point_entity` | No |  | Optional dew point sensor/helper entity. RadarWise also auto-reads common dew point attributes from the weather entity when available. |
 | `title` | No | `Local Weather` | Card title. |
 | `country` | No | `us` | Region hint: `us`, `ca`, `uk`, or `global`. |
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `rainviewer`, or `none`. |
-| `theme_mode` | No | `weatherwise` | `weatherwise` or `auto`. |
+| `theme_mode` | No | `radarwise` | `radarwise` or `auto`. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, or `pt`. Auto follows Home Assistant/browser language when possible. |
 | `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, `radar_bottom`, or `compact`. Use `radar_bottom` for a full-width radar below weather content, or `stacked`/`compact` for narrow dashboards. |
-| `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, WeatherWise falls back to twice-daily or daily data. |
+| `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_timeline` | No | `true` | Show or hide the left hourly/forecast list. |
@@ -286,7 +286,7 @@ Radar location and map controls:
 
 ## Hidden Debug Panel
 
-For troubleshooting, WeatherWise includes a YAML-only debug panel. It is hidden from normal users and is not exposed in the visual editor.
+For troubleshooting, RadarWise includes a YAML-only debug panel. It is hidden from normal users and is not exposed in the visual editor.
 
 ```yaml
 debug:
@@ -298,9 +298,9 @@ Remove it after testing.
 
 ## Support
 
-WeatherWise is free and has no telemetry, ads, popups, tracking pixels, or in-card donation prompts.
+RadarWise is free and has no telemetry, ads, popups, tracking pixels, or in-card donation prompts.
 
-If WeatherWise helps your dashboard, you can support development here:
+If RadarWise helps your dashboard, you can support development here:
 
 [Buy Me a Coffee](https://buymeacoffee.com/thewillmiller)
 
@@ -308,13 +308,13 @@ Available for custom Home Assistant dashboards, Lovelace cards, and kiosk interf
 
 ## Troubleshooting
 
-### WeatherWise does not show in the card picker
+### RadarWise does not show in the card picker
 
-1. Confirm WeatherWise is installed in HACS.
+1. Confirm RadarWise is installed in HACS.
 2. Hard-refresh the browser.
 3. Restart Home Assistant if needed.
 4. Check that the dashboard resource exists.
-5. Open the browser console and look for WeatherWise errors.
+5. Open the browser console and look for RadarWise errors.
 
 ### Forecast data unavailable
 
@@ -348,21 +348,21 @@ The red radar dot appears when the US NWS warning overlay finds an active alert 
 
 ### What do the blue bars show?
 
-The blue bars in the forecast list show relative temperature across the visible rows. Longer bars are warmer compared with the other rows currently shown. If your weather provider exposes precipitation probability or amount, WeatherWise also shows that beside the bar.
+The blue bars in the forecast list show relative temperature across the visible rows. Longer bars are warmer compared with the other rows currently shown. If your weather provider exposes precipitation probability or amount, RadarWise also shows that beside the bar.
 
 ## Address-Based Setup
 
-WeatherWise intentionally uses Home Assistant weather entities instead of direct address lookup. Address entry would require geocoding plus direct weather-provider calls from the browser, which adds privacy, API key, rate-limit, and regional-provider questions. A future WeatherWise integration could offer address-based setup more cleanly by creating the right entities in Home Assistant.
+RadarWise intentionally uses Home Assistant weather entities instead of direct address lookup. Address entry would require geocoding plus direct weather-provider calls from the browser, which adds privacy, API key, rate-limit, and regional-provider questions. A future RadarWise integration could offer address-based setup more cleanly by creating the right entities in Home Assistant.
 
 ## Privacy
 
-WeatherWise does not include telemetry, tracking pixels, external analytics, or phone-home behavior.
+RadarWise does not include telemetry, tracking pixels, external analytics, or phone-home behavior.
 
-When radar is enabled, the browser viewing the dashboard loads map/radar tiles from the selected provider. The card does not send weather entity data to a WeatherWise server.
+When radar is enabled, the browser viewing the dashboard loads map/radar tiles from the selected provider. The card does not send weather entity data to a RadarWise server.
 
 ## Safety
 
-WeatherWise is informational. It is not a life-safety, severe-weather warning, aviation, boating, or emergency tool.
+RadarWise is informational. It is not a life-safety, severe-weather warning, aviation, boating, or emergency tool.
 
 Always check official local forecasts, warnings, alerts, and emergency information for safety-critical decisions.
 
@@ -375,7 +375,7 @@ MIT License.
 The distributable card is:
 
 ```text
-weatherwise-card.js
+radarwise-card.js
 ```
 
 Run the local syntax check before opening a pull request:
@@ -384,4 +384,4 @@ Run the local syntax check before opening a pull request:
 npm run check
 ```
 
-For HACS default repository submission, WeatherWise is a dashboard/custom card. HACS validation/submission uses the `plugin` category internally for dashboard plugins.
+For HACS default repository submission, RadarWise is a dashboard/custom card. HACS validation/submission uses the `plugin` category internally for dashboard plugins.

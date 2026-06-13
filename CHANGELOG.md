@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.2
+## 0.5.0
 
 ### Added
 
@@ -10,7 +10,10 @@
 
 ### Changed
 
-- Updated README, HACS submission notes, and tester templates for the `v0.4.2` release.
+- Renamed the project, card picker entry, HACS metadata, install filename, docs, and examples to RadarWise.
+- Changed the primary card type to `custom:radarwise-card` and the install file to `radarwise-card.js`.
+- Kept the previous custom card element names registered as hidden runtime aliases so existing dashboards keep rendering during the rename transition.
+- Updated README, HACS submission notes, and tester templates for the `v0.5.0` release.
 
 ## 0.4.1
 
@@ -119,14 +122,14 @@
 
 ### Changed
 
-- Promoted WeatherWise from beta-tagged releases to a clean public release version.
+- Promoted RadarWise from beta-tagged releases to a clean public release version.
 - Updated documentation, install examples, issue templates, and HACS notes to use `v0.3.0`.
 - Replaced active beta wording with public-release support language.
 
 ### Notes
 
 - Existing `v0.2.0-beta.*` releases remain in the changelog for history.
-- WeatherWise still welcomes provider and region reports, especially for non-US radar and forecast behavior.
+- RadarWise still welcomes provider and region reports, especially for non-US radar and forecast behavior.
 
 ## 0.2.0-beta.11
 
@@ -151,7 +154,7 @@
 ### Fixed
 
 - Improved Home Assistant Sections dashboard behavior by increasing default grid height and adding safer stacked/compact layouts.
-- Fixed radar initialization when multiple WeatherWise cards or editor previews load Leaflet at the same time.
+- Fixed radar initialization when multiple RadarWise cards or editor previews load Leaflet at the same time.
 - Added more radar size retries after dashboard save/reload so the map is less likely to stay blank.
 - Allowed hourly rows to stretch to fill available height when only a few rows are shown.
 - Reduced current-temperature clipping risk in short landscape cards.
@@ -220,7 +223,7 @@
 
 ### Changed
 
-- Documented the dashed `custom:weather-wise-card` registration as an intentional YAML-only legacy alias.
+- Documented the dashed `custom:radar-wise-card` registration as an intentional YAML-only legacy alias.
 
 ## 0.2.0-beta.2
 
@@ -234,7 +237,7 @@
 
 ### Changed
 
-- NOAA future radar now falls back to the current radar frame because the NOAA radar image service used by WeatherWise is observed/current radar.
+- NOAA future radar now falls back to the current radar frame because the NOAA radar image service used by RadarWise is observed/current radar.
 
 ## 0.2.0-beta.1
 
@@ -256,16 +259,16 @@
 
 ### Fixed
 
-- Fixed Leaflet radar rendering inside the WeatherWise shadow DOM by embedding the required Leaflet layout styles in the card.
-- Restored wide-card proportions to more closely match the original WeatherWise HTML dashboard.
+- Fixed Leaflet radar rendering inside the RadarWise shadow DOM by embedding the required Leaflet layout styles in the card.
+- Restored wide-card proportions to more closely match the original RadarWise HTML dashboard.
 - Kept radar as a true right-side panel on wide dashboards instead of switching too early to a bottom row.
-- Tuned daily forecast, center, and left-column spacing to better match the original WeatherWise card.
+- Tuned daily forecast, center, and left-column spacing to better match the original RadarWise card.
 
 ## 0.1.0-beta.3
 
 ### Fixed
 
-- Fixed auto-height dashboards growing the WeatherWise card far beyond the intended height.
+- Fixed auto-height dashboards growing the RadarWise card far beyond the intended height.
 - Added explicit grid sizing defaults for Home Assistant section dashboards.
 - Reworked card height so the desktop/tablet layout is bounded while narrow/mobile cards can still stack naturally.
 - Removed large Leaflet map minimum heights that could inflate dashboard layout.
@@ -277,7 +280,7 @@
 ### Fixed
 
 - Fixed the visual editor/card picker script failure caused by registering the same custom element class under two tag names.
-- Added a clearer card picker name: **WeatherWise Weather**.
+- Added a clearer card picker name: **RadarWise Weather**.
 - Improved dashboard-column layout by using card/container width breakpoints instead of only viewport width.
 - Fixed narrow card overflow when radar is hidden or the card is placed in a smaller dashboard column.
 
@@ -285,9 +288,9 @@
 
 ### Added
 
-- Added the first WeatherWise beta custom card.
+- Added the first RadarWise beta custom card.
 - Added Home Assistant visual editor support.
-- Added WeatherWise and Home Assistant theme modes.
+- Added RadarWise and Home Assistant theme modes.
 - Added US, Canada, UK, and global region choices.
 - Added US NOAA radar support.
 - Added RainViewer global radar support for Canada, UK, and other non-US dashboards.
@@ -297,12 +300,12 @@
 
 ### Changed
 
-- WeatherWise is a dashboard/custom card, not a custom integration.
+- RadarWise is a dashboard/custom card, not a custom integration.
 - Weather data comes from existing Home Assistant `weather` entities.
 - API keys are not stored in dashboard YAML.
 
 ### Known Issues
 
-- WeatherWise provider behavior may vary by region and Home Assistant weather integration.
+- RadarWise provider behavior may vary by region and Home Assistant weather integration.
 - Canada and UK weather support depends on the user's Home Assistant weather entity.
 - RainViewer is a no-key global radar option for personal/community use and may have service/coverage limits.

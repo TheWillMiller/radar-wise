@@ -1,9 +1,9 @@
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather
 country: ca
 radar_provider: auto
-theme_mode: weatherwise
+theme_mode: radarwise
 units: metric
 latitude: 43.6532
 longitude: -79.3832

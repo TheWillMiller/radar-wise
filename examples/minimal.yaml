@@ -1,3 +1,3 @@
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather

@@ -1,10 +1,10 @@
-# WeatherWise Tester Checklist
+# RadarWise Tester Checklist
 
 Please report:
 
 - Home Assistant version
 - HACS version
-- WeatherWise version, such as `v0.4.2`
+- RadarWise version, such as `v0.5.0`
 - Browser/device
 - Weather entity used
 - Country/radar provider
@@ -15,7 +15,7 @@ Please report:
 
 Basic checks:
 
-1. Install WeatherWise from HACS custom repository.
+1. Install RadarWise from HACS custom repository.
 2. Add the card from the dashboard card picker.
 3. Open the visual editor.
 4. Select a weather entity.
@@ -23,7 +23,7 @@ Basic checks:
 6. Refresh the dashboard.
 7. Confirm current weather, forecast rows, and stats load.
 8. Confirm dew point appears automatically or works with a selected dew point sensor.
-9. Test `theme_mode: weatherwise`.
+9. Test `theme_mode: radarwise`.
 10. Test `theme_mode: auto`.
 11. Test the layout tiles: `auto`, `wide_panel`, `stacked`, `radar_bottom`, and `compact`.
 12. Drag panel order in the visual editor and confirm it persists after save/refresh.

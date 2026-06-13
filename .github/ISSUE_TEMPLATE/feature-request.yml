@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a focused WeatherWise improvement.
+description: Suggest a focused RadarWise improvement.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -15,14 +15,14 @@ body:
     id: proposal
     attributes:
       label: Proposed solution
-      description: What would you like WeatherWise to do?
+      description: What would you like RadarWise to do?
     validations:
       required: true
   - type: input
-    id: weatherwise_version
+    id: radarwise_version
     attributes:
-      label: WeatherWise version
-      placeholder: v0.4.2
+      label: RadarWise version
+      placeholder: v0.5.0
     validations:
       required: false
   - type: input
@@ -36,7 +36,7 @@ body:
     id: regional_support
     attributes:
       label: Regional support details
-      description: If this is for a country or provider WeatherWise does not handle well yet, include the local weather integration, radar source, alert/warning source, and an example of what users in your area expect.
+      description: If this is for a country or provider RadarWise does not handle well yet, include the local weather integration, radar source, alert/warning source, and an example of what users in your area expect.
     validations:
       required: false
   - type: textarea

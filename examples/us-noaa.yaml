@@ -1,9 +1,9 @@
-type: custom:weatherwise-card
+type: custom:radarwise-card
 entity: weather.home
 title: Local Weather
 country: us
 radar_provider: auto
-theme_mode: weatherwise
+theme_mode: radarwise
 units: auto
 latitude: 33.688
 longitude: -78.886

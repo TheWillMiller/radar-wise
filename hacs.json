@@ -1,7 +1,7 @@
 {
-  "name": "WeatherWise",
+  "name": "RadarWise",
   "country": "US",
   "content_in_root": true,
   "render_readme": true,
-  "filename": "weatherwise-card.js"
+  "filename": "radarwise-card.js"
 }

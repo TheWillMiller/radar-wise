@@ -1,20 +1,20 @@
 /*
- * WeatherWise Card
+ * RadarWise Card
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.4.2";
+const CARD_VERSION = "0.5.0";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
-const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
+const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
 
-const WEATHERWISE_COUNTRIES = {
+const RADARWISE_COUNTRIES = {
   us: "United States",
   ca: "Canada",
   uk: "United Kingdom",
   global: "Global / other"
 };
 
-const WEATHERWISE_RADAR = {
+const RADARWISE_RADAR = {
   auto: "Auto",
   noaa: "US NOAA radar",
   envcanada: "Environment Canada radar",
@@ -22,25 +22,25 @@ const WEATHERWISE_RADAR = {
   none: "No radar"
 };
 
-const WEATHERWISE_RADAR_STYLES = {
+const RADARWISE_RADAR_STYLES = {
   standard: "Standard",
   vivid: "High contrast",
   soft: "Soft"
 };
 
-const WEATHERWISE_BASEMAPS = {
+const RADARWISE_BASEMAPS = {
   light: "Light map",
   dark: "Dark map",
   osm: "Street map"
 };
 
-const WEATHERWISE_RADAR_TIMELINES = {
+const RADARWISE_RADAR_TIMELINES = {
   loop: "Recent loop",
   latest: "Current frame",
   future: "Future if available"
 };
 
-const WEATHERWISE_LAYOUTS = {
+const RADARWISE_LAYOUTS = {
   auto: "Auto",
   wide_panel: "Wide panel",
   stacked: "Stacked",
@@ -48,7 +48,7 @@ const WEATHERWISE_LAYOUTS = {
   radar_bottom: "Radar bottom"
 };
 
-const WEATHERWISE_LANGUAGES = {
+const RADARWISE_LANGUAGES = {
   auto: "Auto",
   en: "English",
   fr: "Français",
@@ -57,7 +57,7 @@ const WEATHERWISE_LANGUAGES = {
   pt: "Português"
 };
 
-const WEATHERWISE_TEXT = {
+const RADARWISE_TEXT = {
   en: {
     am: "AM",
     pm: "PM",
@@ -380,7 +380,7 @@ function _wwEscape(value) {
   }[char]));
 }
 
-function isWeatherWiseHumidityEntity(entityId, state) {
+function isRadarWiseHumidityEntity(entityId, state) {
   if (!entityId) return false;
   const friendly = String(state?.attributes?.friendly_name || "").toLowerCase();
   const deviceClass = String(state?.attributes?.device_class || "").toLowerCase();
@@ -388,7 +388,7 @@ function isWeatherWiseHumidityEntity(entityId, state) {
   return deviceClass === "humidity" || id.includes("humidity") || friendly.includes("humidity");
 }
 
-function isWeatherWiseTemperatureEntity(entityId, state) {
+function isRadarWiseTemperatureEntity(entityId, state) {
   if (!entityId) return false;
   const attrs = state?.attributes || {};
   const friendly = String(attrs.friendly_name || "").toLowerCase();
@@ -398,7 +398,7 @@ function isWeatherWiseTemperatureEntity(entityId, state) {
   return deviceClass === "temperature" || unit.includes("°") || unit === "c" || unit === "f" || id.includes("temp") || friendly.includes("temp");
 }
 
-function isWeatherWiseDewPointEntity(entityId, state) {
+function isRadarWiseDewPointEntity(entityId, state) {
   if (!entityId) return false;
   const attrs = state?.attributes || {};
   const friendly = String(attrs.friendly_name || "").toLowerCase();
@@ -413,10 +413,10 @@ function isWeatherWiseDewPointEntity(entityId, state) {
     || (looksLikeTemperature && (id.includes("dew") || friendly.includes("dew")));
 }
 
-class WeatherWiseCard extends HTMLElement {
+class RadarWiseCard extends HTMLElement {
   static getStubConfig() {
     return {
-      type: "custom:weatherwise-card",
+      type: "custom:radarwise-card",
       entity: "weather.home",
       humidity_entity: "",
       temperature_entity: "",
@@ -424,7 +424,7 @@ class WeatherWiseCard extends HTMLElement {
       title: "Local Weather",
       country: "us",
       radar_provider: "auto",
-      theme_mode: "weatherwise",
+      theme_mode: "radarwise",
       units: "auto",
       language: "auto",
       layout: "auto",
@@ -455,7 +455,7 @@ class WeatherWiseCard extends HTMLElement {
   }
 
   static getConfigElement() {
-    return document.createElement("weatherwise-card-editor");
+    return document.createElement("radarwise-card-editor");
   }
 
   constructor() {
@@ -583,7 +583,7 @@ class WeatherWiseCard extends HTMLElement {
   _normalizeConfig(config) {
     const country = String(config.country || "us").toLowerCase();
     const radarProvider = String(config.radar_provider || "auto").toLowerCase();
-    const themeMode = String(config.theme_mode || "weatherwise").toLowerCase() === "auto" ? "auto" : "weatherwise";
+    const themeMode = String(config.theme_mode || "radarwise").toLowerCase() === "auto" ? "auto" : "radarwise";
     const units = ["auto", "imperial", "metric"].includes(String(config.units || "auto").toLowerCase())
       ? String(config.units || "auto").toLowerCase()
       : "auto";
@@ -597,8 +597,8 @@ class WeatherWiseCard extends HTMLElement {
       humidity_entity: "",
       temperature_entity: "",
       dew_point_entity: "",
-      country: WEATHERWISE_COUNTRIES[country] ? country : "global",
-      radar_provider: WEATHERWISE_RADAR[radarProvider] ? radarProvider : "auto",
+      country: RADARWISE_COUNTRIES[country] ? country : "global",
+      radar_provider: RADARWISE_RADAR[radarProvider] ? radarProvider : "auto",
       theme_mode: themeMode,
       units,
       hourly_count: 5,
@@ -618,11 +618,11 @@ class WeatherWiseCard extends HTMLElement {
       radar_speed: 700,
       debug: { enabled: false, panel: false },
       ...config,
-      radar_style: WEATHERWISE_RADAR_STYLES[radarStyle] ? radarStyle : "standard",
-      radar_basemap: WEATHERWISE_BASEMAPS[radarBasemap] ? radarBasemap : "light",
-      radar_timeline: WEATHERWISE_RADAR_TIMELINES[radarTimeline] ? radarTimeline : "loop",
-      layout: WEATHERWISE_LAYOUTS[layout] ? layout : "auto",
-      language: WEATHERWISE_LANGUAGES[language] ? language : "auto",
+      radar_style: RADARWISE_RADAR_STYLES[radarStyle] ? radarStyle : "standard",
+      radar_basemap: RADARWISE_BASEMAPS[radarBasemap] ? radarBasemap : "light",
+      radar_timeline: RADARWISE_RADAR_TIMELINES[radarTimeline] ? radarTimeline : "loop",
+      layout: RADARWISE_LAYOUTS[layout] ? layout : "auto",
+      language: RADARWISE_LANGUAGES[language] ? language : "auto",
       latitude: this._numberOr(config.latitude, undefined),
       longitude: this._numberOr(config.longitude, undefined),
       hourly_count: Math.max(1, Math.min(24, Number(config.hourly_count) || 5)),
@@ -743,26 +743,26 @@ class WeatherWiseCard extends HTMLElement {
 
   _language() {
     const configured = String(this._config.language || this._config.forecast_summary_language || "auto").toLowerCase();
-    if (WEATHERWISE_TEXT[configured]) return configured;
+    if (RADARWISE_TEXT[configured]) return configured;
     const browserLanguage = typeof navigator !== "undefined" ? navigator.language : "en";
     const locale = String(this._hass?.locale?.language || this._hass?.language || browserLanguage || "en").toLowerCase();
     const code = locale.split(/[-_]/)[0];
-    return WEATHERWISE_TEXT[code] ? code : "en";
+    return RADARWISE_TEXT[code] ? code : "en";
   }
 
   _texts() {
-    return WEATHERWISE_TEXT[this._language()] || WEATHERWISE_TEXT.en;
+    return RADARWISE_TEXT[this._language()] || RADARWISE_TEXT.en;
   }
 
   _localeCode() {
     const configured = String(this._config.language || "auto").toLowerCase();
-    if (configured !== "auto" && WEATHERWISE_TEXT[configured]) return configured;
+    if (configured !== "auto" && RADARWISE_TEXT[configured]) return configured;
     const browserLanguage = typeof navigator !== "undefined" ? navigator.language : "en";
     return this._hass?.locale?.language || this._hass?.language || browserLanguage || "en";
   }
 
   _t(key) {
-    return this._texts()[key] ?? WEATHERWISE_TEXT.en[key] ?? key;
+    return this._texts()[key] ?? RADARWISE_TEXT.en[key] ?? key;
   }
 
   _template(key, values = {}) {
@@ -1057,7 +1057,7 @@ class WeatherWiseCard extends HTMLElement {
   _localizedCondition(condition) {
     const value = String(condition || "weather").replace(/[-_]+/g, " ").trim().toLowerCase();
     return this._texts().conditions?.[value]
-      || WEATHERWISE_TEXT.en.conditions[value]
+      || RADARWISE_TEXT.en.conditions[value]
       || value
       || "weather";
   }
@@ -1238,15 +1238,15 @@ class WeatherWiseCard extends HTMLElement {
       }
       return;
     }
-    if (!document.querySelector("link[data-weatherwise-leaflet]")) {
+    if (!document.querySelector("link[data-radarwise-leaflet]")) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      link.dataset.weatherwiseLeaflet = "true";
+      link.dataset.radarwiseLeaflet = "true";
       document.head.appendChild(link);
     }
     window.__weatherWiseLeafletPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector("script[data-weatherwise-leaflet]");
+      const existing = document.querySelector("script[data-radarwise-leaflet]");
       if (existing) {
         const started = Date.now();
         const waitForExisting = () => {
@@ -1259,7 +1259,7 @@ class WeatherWiseCard extends HTMLElement {
       }
         const script = document.createElement("script");
         script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.dataset.weatherwiseLeaflet = "true";
+        script.dataset.radarwiseLeaflet = "true";
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
@@ -1503,7 +1503,7 @@ class WeatherWiseCard extends HTMLElement {
     try {
       const response = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, {
         headers: {
-          "User-Agent": `WeatherWise/${CARD_VERSION} (github.com/TheWillMiller/weather-wise)`,
+          "User-Agent": `RadarWise/${CARD_VERSION} (github.com/TheWillMiller/radar-wise)`,
           Accept: "application/geo+json"
         }
       });
@@ -1616,7 +1616,7 @@ class WeatherWiseCard extends HTMLElement {
   _currentTemperature(attrs) {
     const entityId = this._config.temperature_entity;
     const state = entityId ? this._hass?.states?.[entityId] : null;
-    if (state && isWeatherWiseTemperatureEntity(entityId, state)) {
+    if (state && isRadarWiseTemperatureEntity(entityId, state)) {
       return {
         value: state.state,
         unit: state.attributes?.unit_of_measurement || state.attributes?.native_unit_of_measurement || this._hass?.config?.unit_system?.temperature
@@ -1692,7 +1692,7 @@ class WeatherWiseCard extends HTMLElement {
   _humidity(attrs) {
     const configuredEntityId = this._config.humidity_entity;
     const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
-    const configured = isWeatherWiseHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
+    const configured = isRadarWiseHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
     const values = [
       configured?.state,
       attrs.humidity,
@@ -1706,7 +1706,7 @@ class WeatherWiseCard extends HTMLElement {
   _dewPoint(attrs, units) {
     const configuredEntityId = this._config.dew_point_entity;
     const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
-    if (configuredState && isWeatherWiseDewPointEntity(configuredEntityId, configuredState)) {
+    if (configuredState && isRadarWiseDewPointEntity(configuredEntityId, configuredState)) {
       return this._displayTemp({
         value: configuredState.state,
         unit: configuredState.attributes?.unit_of_measurement || configuredState.attributes?.native_unit_of_measurement || this._hass?.config?.unit_system?.temperature
@@ -1827,7 +1827,7 @@ class WeatherWiseCard extends HTMLElement {
       .card-outer{container-type:inline-size;background:rgba(232,246,250,0.74);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:22px;border:1px solid rgba(255,255,255,0.42);box-shadow:0 4px 28px rgba(0,0,0,0.10);position:relative;overflow:hidden}
       :host([theme-mode="auto"]) .card-outer{background:linear-gradient(135deg,color-mix(in srgb,var(--card-background-color,#fff) 88%,transparent),color-mix(in srgb,var(--primary-color,#2a7a94) 14%,var(--card-background-color,#fff)))}
       .card-outer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ww-wave) 62%,transparent),transparent)}
-      .card-grid{display:grid;grid-template-columns:minmax(0,var(--ww-col1,1fr)) minmax(0,var(--ww-col2,2fr)) minmax(0,var(--ww-col3,1fr));height:var(--weatherwise-card-height,clamp(450px,24cqw,540px));min-height:0;max-height:var(--weatherwise-card-max-height,580px)}
+      .card-grid{display:grid;grid-template-columns:minmax(0,var(--ww-col1,1fr)) minmax(0,var(--ww-col2,2fr)) minmax(0,var(--ww-col3,1fr));height:var(--radarwise-card-height,clamp(450px,24cqw,540px));min-height:0;max-height:var(--radarwise-card-max-height,580px)}
       .card-grid.no-radar{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}
       .left{min-width:0;display:flex;flex-direction:column;padding:18px 22px 10px;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08));border-right:1px solid rgba(255,255,255,0.22);overflow:hidden;order:var(--ww-left-order,1)}
       .center{order:var(--ww-center-order,2)}.right{order:var(--ww-right-order,3)}
@@ -1949,9 +1949,9 @@ class WeatherWiseCard extends HTMLElement {
       .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
       .debug-row code{color:var(--ww-text)}
       .card-grid.no-forecast .daily-strip{display:none}.card-grid.no-forecast .center{justify-content:center}
-      @container(max-width:1500px){.card-grid{height:var(--weatherwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px;margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:12px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
-      @container(max-width:980px){.card-grid:not(.layout-wide_panel){height:var(--weatherwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
-      .card-grid.layout-wide_panel{height:var(--weatherwise-card-height,clamp(390px,22cqw,500px))}
+      @container(max-width:1500px){.card-grid{height:var(--radarwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px;margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:12px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
+      @container(max-width:980px){.card-grid:not(.layout-wide_panel){height:var(--radarwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
+      .card-grid.layout-wide_panel{height:var(--radarwise-card-height,clamp(390px,22cqw,500px))}
       .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{display:contents}.card-grid.layout-stacked .clock-panel,.card-grid.layout-compact .clock-panel{order:1;padding:18px 22px 0;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid.layout-stacked .left>.section-title,.card-grid.layout-compact .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 22px;margin-top:4px}.card-grid.layout-stacked .hourly-left,.card-grid.layout-compact .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 22px 16px}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:var(--ww-ord-radar,30);border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
       @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%);height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:38px}.card-grid.layout-wide_panel .clock-date{font-size:12px;margin:5px 0 7px}.card-grid.layout-wide_panel .forecast-summary{min-height:26px;margin-bottom:8px}.card-grid.layout-wide_panel .forecast-summary-text{font-size:11px;padding:6px 14px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:21px}.card-grid.layout-wide_panel .temp-now{font-size:38px}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:28px}.card-grid.layout-wide_panel .stats-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
       @media(max-width:760px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
@@ -1970,7 +1970,7 @@ class WeatherWiseCard extends HTMLElement {
   }
 }
 
-class WeatherWiseCardEditor extends HTMLElement {
+class RadarWiseCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -1991,7 +1991,7 @@ class WeatherWiseCardEditor extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      ...WeatherWiseCard.getStubConfig(),
+      ...RadarWiseCard.getStubConfig(),
       ...(config || {}),
       language: config?.language || config?.forecast_summary_language || "auto"
     };
@@ -2012,21 +2012,21 @@ class WeatherWiseCardEditor extends HTMLElement {
   }
 
   _humidityEntities() {
-    return this._sensorEntities(isWeatherWiseHumidityEntity);
+    return this._sensorEntities(isRadarWiseHumidityEntity);
   }
 
   _temperatureEntities() {
-    return this._sensorEntities(isWeatherWiseTemperatureEntity);
+    return this._sensorEntities(isRadarWiseTemperatureEntity);
   }
 
   _dewPointEntities() {
-    return this._sensorEntities(isWeatherWiseDewPointEntity);
+    return this._sensorEntities(isRadarWiseDewPointEntity);
   }
 
   _editorEntitySignature() {
     const states = this._hass?.states || {};
     return Object.entries(states)
-      .filter(([entityId, state]) => entityId.startsWith("weather.") || isWeatherWiseHumidityEntity(entityId, state) || isWeatherWiseTemperatureEntity(entityId, state) || isWeatherWiseDewPointEntity(entityId, state))
+      .filter(([entityId, state]) => entityId.startsWith("weather.") || isRadarWiseHumidityEntity(entityId, state) || isRadarWiseTemperatureEntity(entityId, state) || isRadarWiseDewPointEntity(entityId, state))
       .map(([entityId, state]) => `${entityId}:${state.attributes?.friendly_name || ""}:${state.attributes?.device_class || ""}`)
       .sort()
       .join("|");
@@ -2062,13 +2062,13 @@ class WeatherWiseCardEditor extends HTMLElement {
     const configuredOption = config.entity && !hasConfiguredEntity
       ? `<option value="${_wwEscape(config.entity)}" selected>${_wwEscape(config.entity)}</option>`
       : "";
-    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity && isWeatherWiseHumidityEntity(config.humidity_entity, this._hass?.states?.[config.humidity_entity])
+    const configuredHumidityOption = config.humidity_entity && !hasConfiguredHumidityEntity && isRadarWiseHumidityEntity(config.humidity_entity, this._hass?.states?.[config.humidity_entity])
       ? `<option value="${_wwEscape(config.humidity_entity)}" selected>${_wwEscape(config.humidity_entity)}</option>`
       : "";
-    const configuredTemperatureOption = config.temperature_entity && !hasConfiguredTemperatureEntity && isWeatherWiseTemperatureEntity(config.temperature_entity, this._hass?.states?.[config.temperature_entity])
+    const configuredTemperatureOption = config.temperature_entity && !hasConfiguredTemperatureEntity && isRadarWiseTemperatureEntity(config.temperature_entity, this._hass?.states?.[config.temperature_entity])
       ? `<option value="${_wwEscape(config.temperature_entity)}" selected>${_wwEscape(config.temperature_entity)}</option>`
       : "";
-    const configuredDewPointOption = config.dew_point_entity && !hasConfiguredDewPointEntity && isWeatherWiseDewPointEntity(config.dew_point_entity, this._hass?.states?.[config.dew_point_entity])
+    const configuredDewPointOption = config.dew_point_entity && !hasConfiguredDewPointEntity && isRadarWiseDewPointEntity(config.dew_point_entity, this._hass?.states?.[config.dew_point_entity])
       ? `<option value="${_wwEscape(config.dew_point_entity)}" selected>${_wwEscape(config.dew_point_entity)}</option>`
       : "";
     const weatherOptions = entities.map(([entityId, state]) => {
@@ -2156,34 +2156,34 @@ class WeatherWiseCardEditor extends HTMLElement {
               ${dewPointOptions}
             </select>
           </label>
-          <div class="hint">WeatherWise reads an existing Home Assistant weather entity and calls Home Assistant's forecast service. Use local temperature, humidity, or dew point sensors when your weather entity differs from the spot you care about.</div>
+          <div class="hint">RadarWise reads an existing Home Assistant weather entity and calls Home Assistant's forecast service. Use local temperature, humidity, or dew point sensors when your weather entity differs from the spot you care about.</div>
         </div>
         <div class="section">
           <div class="section-title">Region and radar</div>
           <div class="grid">
             <label>Country / region
               <select id="country">
-                ${Object.entries(WEATHERWISE_COUNTRIES).map(([value, label]) => `<option value="${value}" ${config.country === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_COUNTRIES).map(([value, label]) => `<option value="${value}" ${config.country === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
             <label>Radar provider
               <select id="radar_provider">
-                ${Object.entries(WEATHERWISE_RADAR).map(([value, label]) => `<option value="${value}" ${config.radar_provider === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_RADAR).map(([value, label]) => `<option value="${value}" ${config.radar_provider === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
             <label>Radar style
               <select id="radar_style">
-                ${Object.entries(WEATHERWISE_RADAR_STYLES).map(([value, label]) => `<option value="${value}" ${config.radar_style === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_RADAR_STYLES).map(([value, label]) => `<option value="${value}" ${config.radar_style === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
             <label>Map style
               <select id="radar_basemap">
-                ${Object.entries(WEATHERWISE_BASEMAPS).map(([value, label]) => `<option value="${value}" ${config.radar_basemap === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_BASEMAPS).map(([value, label]) => `<option value="${value}" ${config.radar_basemap === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
             <label>Radar timeline
               <select id="radar_timeline">
-                ${Object.entries(WEATHERWISE_RADAR_TIMELINES).map(([value, label]) => `<option value="${value}" ${config.radar_timeline === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_RADAR_TIMELINES).map(([value, label]) => `<option value="${value}" ${config.radar_timeline === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
           </div>
@@ -2202,13 +2202,13 @@ class WeatherWiseCardEditor extends HTMLElement {
             </label>
             <label>Theme
               <select id="theme_mode">
-                <option value="weatherwise" ${config.theme_mode !== "auto" ? "selected" : ""}>WeatherWise</option>
+                <option value="radarwise" ${config.theme_mode !== "auto" ? "selected" : ""}>RadarWise</option>
                 <option value="auto" ${config.theme_mode === "auto" ? "selected" : ""}>Match Home Assistant theme</option>
               </select>
             </label>
             <label>Language
               <select id="language">
-                ${Object.entries(WEATHERWISE_LANGUAGES).map(([value, label]) => `<option value="${value}" ${(config.language || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
+                ${Object.entries(RADARWISE_LANGUAGES).map(([value, label]) => `<option value="${value}" ${(config.language || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
             <label>Forecast list rows <input id="hourly_count" type="number" min="1" max="24" value="${_wwEscape(config.hourly_count || 5)}"></label>
@@ -2454,26 +2454,33 @@ class WeatherWiseCardEditor extends HTMLElement {
 
 }
 
-class WeatherWiseDashedCard extends WeatherWiseCard {}
-class WeatherWiseDashedCardEditor extends WeatherWiseCardEditor {}
+class RadarWiseDashedCard extends RadarWiseCard {}
+class RadarWiseDashedCardEditor extends RadarWiseCardEditor {}
+class RadarWiseLegacyCard extends RadarWiseCard {}
+class RadarWiseLegacyDashedCard extends RadarWiseCard {}
+class RadarWiseLegacyCardEditor extends RadarWiseCardEditor {}
+class RadarWiseLegacyDashedCardEditor extends RadarWiseCardEditor {}
 
-if (!customElements.get(CARD_TYPES[0])) customElements.define(CARD_TYPES[0], WeatherWiseCard);
-// Keep the dashed element names as YAML-only legacy aliases for early WeatherWise users.
-if (!customElements.get(CARD_TYPES[1])) customElements.define(CARD_TYPES[1], WeatherWiseDashedCard);
-if (!customElements.get("weatherwise-card-editor")) customElements.define("weatherwise-card-editor", WeatherWiseCardEditor);
-if (!customElements.get("weather-wise-card-editor")) customElements.define("weather-wise-card-editor", WeatherWiseDashedCardEditor);
+if (!customElements.get(CARD_TYPES[0])) customElements.define(CARD_TYPES[0], RadarWiseCard);
+if (!customElements.get(CARD_TYPES[1])) customElements.define(CARD_TYPES[1], RadarWiseDashedCard);
+if (!customElements.get(CARD_TYPES[2])) customElements.define(CARD_TYPES[2], RadarWiseLegacyCard);
+if (!customElements.get(CARD_TYPES[3])) customElements.define(CARD_TYPES[3], RadarWiseLegacyDashedCard);
+if (!customElements.get("radarwise-card-editor")) customElements.define("radarwise-card-editor", RadarWiseCardEditor);
+if (!customElements.get("radar-wise-card-editor")) customElements.define("radar-wise-card-editor", RadarWiseDashedCardEditor);
+if (!customElements.get("weatherwise-card-editor")) customElements.define("weatherwise-card-editor", RadarWiseLegacyCardEditor);
+if (!customElements.get("weather-wise-card-editor")) customElements.define("weather-wise-card-editor", RadarWiseLegacyDashedCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "weatherwise-card",
-  name: "WeatherWise Weather",
+  type: "radarwise-card",
+  name: "RadarWise Weather",
   description: "Weather dashboard card with forecasts, theme support, and optional radar.",
-  documentationURL: "https://github.com/TheWillMiller/weather-wise",
+  documentationURL: "https://github.com/TheWillMiller/radar-wise",
   preview: true
 });
 
 console.info(
-  `%c WEATHERWISE-CARD %c v${CARD_VERSION} `,
+  `%c RADARWISE-CARD %c v${CARD_VERSION} `,
   "background:#0d3a5c;color:#7ecbca;font-weight:bold;padding:2px 4px;border-radius:3px 0 0 3px",
   "background:#7ecbca;color:#0d3a5c;font-weight:bold;padding:2px 4px;border-radius:0 3px 3px 0"
 );

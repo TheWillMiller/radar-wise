@@ -1,15 +1,15 @@
 name: Works For Me / Confirmed Setup
-description: Confirm a WeatherWise install and weather/radar setup that works.
+description: Confirm a RadarWise install and weather/radar setup that works.
 title: "[Works For Me]: "
 labels:
   - works-for-me
   - confirmed-setup
 body:
   - type: input
-    id: weatherwise_version
+    id: radarwise_version
     attributes:
-      label: WeatherWise version
-      placeholder: v0.4.2
+      label: RadarWise version
+      placeholder: v0.5.0
     validations:
       required: true
   - type: input

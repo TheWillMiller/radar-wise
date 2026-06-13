@@ -1,14 +1,14 @@
 name: Install / Runtime Report
-description: Report a WeatherWise install, update, or runtime problem.
+description: Report a RadarWise install, update, or runtime problem.
 title: "[Install]: "
 labels:
   - install-report
 body:
   - type: input
-    id: weatherwise_version
+    id: radarwise_version
     attributes:
-      label: WeatherWise version
-      placeholder: v0.4.2
+      label: RadarWise version
+      placeholder: v0.5.0
     validations:
       required: true
   - type: input
@@ -90,6 +90,6 @@ body:
     id: details
     attributes:
       label: Details, screenshots, or console errors
-      description: Paste browser console errors or attach screenshots if something broke. Outside the US, Canada, and UK, please include your weather provider, whether RainViewer radar loads, and any local radar or warning sources WeatherWise should support.
+      description: Paste browser console errors or attach screenshots if something broke. Outside the US, Canada, and UK, please include your weather provider, whether RainViewer radar loads, and any local radar or warning sources RadarWise should support.
     validations:
       required: false

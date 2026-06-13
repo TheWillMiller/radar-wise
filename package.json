@@ -1,17 +1,17 @@
 {
-  "name": "weatherwise-card",
-  "version": "0.4.2",
-  "description": "Weather dashboard custom card for Home Assistant with forecasts and optional radar.",
+  "name": "radarwise-card",
+  "version": "0.5.0",
+  "description": "Radar-forward weather dashboard custom card for Home Assistant with forecasts and alerts.",
   "type": "module",
   "files": [
-    "weatherwise-card.js",
+    "radarwise-card.js",
     "README.md",
     "info.md",
     "hacs.json",
     "examples"
   ],
   "scripts": {
-    "check": "node --check weatherwise-card.js"
+    "check": "node --check radarwise-card.js"
   },
   "keywords": [
     "home-assistant",
