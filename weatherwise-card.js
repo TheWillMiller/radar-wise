@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.3.6";
+const CARD_VERSION = "0.3.7";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const CARD_TYPES = ["weatherwise-card", "weather-wise-card"];
 
@@ -47,6 +47,323 @@ const WEATHERWISE_LAYOUTS = {
   compact: "Compact"
 };
 
+const WEATHERWISE_LANGUAGES = {
+  auto: "Auto",
+  en: "English",
+  fr: "Français",
+  es: "Español",
+  de: "Deutsch",
+  pt: "Português"
+};
+
+const WEATHERWISE_TEXT = {
+  en: {
+    am: "AM",
+    pm: "PM",
+    currentWeather: "Current Weather",
+    selectWeatherEntity: "Select a weather entity",
+    connectWeather: "Connect weather in Home Assistant",
+    openEditor: "Open the card editor to finish setup",
+    waitingLive: "Waiting for live weather data",
+    updated: "Updated",
+    forecast: "Forecast",
+    daily: "Daily",
+    hourly: "Hourly",
+    dayPeriod: "Day",
+    nightPeriod: "Night",
+    humidity: "Humidity",
+    wind: "Wind",
+    sunrise: "Sunrise",
+    sunset: "Sunset",
+    waitingForecast: "Waiting for Home Assistant forecast data.",
+    relativeTemp: "Relative temperature within the visible forecast rows",
+    radarLoading: "Radar loading...",
+    radarUnavailable: "Radar unavailable",
+    radarWaiting: "Radar waiting for dashboard layout",
+    rainviewerUnavailable: "RainViewer radar unavailable",
+    currentRadar: "current radar",
+    radarLoop: "radar loop",
+    futureRadar: "future radar",
+    previousRadarFrame: "Previous radar frame",
+    nextRadarFrame: "Next radar frame",
+    pauseRadarLoop: "Pause radar loop",
+    playRadarLoop: "Play radar loop",
+    weatherAlert: "Weather alert",
+    activeWeatherAlert: "active weather alert",
+    nwsAlertTap: "NWS alert - tap for details",
+    severity: "Severity",
+    unknown: "Unknown",
+    forecastIntro: "Forecast",
+    currently: "currently",
+    withHigh: "with a high near {temp}",
+    chancePrecip: "and a {chance}% chance of precipitation",
+    tonight: "Tonight will be {condition}",
+    withLow: "with a low near {temp}",
+    tomorrow: "Tomorrow will be {condition}",
+    nearTemp: "near {temp}",
+    conditions: {
+      sunny: "sunny",
+      "clear night": "clear",
+      "partly cloudy": "partly cloudy",
+      cloudy: "cloudy",
+      rainy: "rainy",
+      pouring: "heavy rain",
+      lightning: "thunderstorms possible",
+      "lightning rainy": "thunderstorms possible",
+      snowy: "snowy",
+      "snowy rainy": "mixed wintry precipitation",
+      fog: "foggy",
+      windy: "windy",
+      "windy variant": "windy with clouds",
+      unavailable: "unavailable"
+    }
+  },
+  fr: {
+    am: "AM",
+    pm: "PM",
+    currentWeather: "Météo actuelle",
+    selectWeatherEntity: "Sélectionnez une entité météo",
+    connectWeather: "Connectez la météo dans Home Assistant",
+    openEditor: "Ouvrez l'éditeur de carte pour terminer",
+    waitingLive: "En attente des données météo en direct",
+    updated: "Mis à jour",
+    forecast: "Prévisions",
+    daily: "Quotidien",
+    hourly: "Heure par heure",
+    dayPeriod: "Jour",
+    nightPeriod: "Nuit",
+    humidity: "Humidité",
+    wind: "Vent",
+    sunrise: "Lever du soleil",
+    sunset: "Coucher du soleil",
+    waitingForecast: "En attente des prévisions Home Assistant.",
+    relativeTemp: "Température relative dans les lignes de prévision visibles",
+    radarLoading: "Chargement du radar...",
+    radarUnavailable: "Radar indisponible",
+    radarWaiting: "Le radar attend la mise en page du tableau de bord",
+    rainviewerUnavailable: "Radar RainViewer indisponible",
+    currentRadar: "radar actuel",
+    radarLoop: "boucle radar",
+    futureRadar: "radar futur",
+    previousRadarFrame: "Image radar précédente",
+    nextRadarFrame: "Image radar suivante",
+    pauseRadarLoop: "Mettre la boucle radar en pause",
+    playRadarLoop: "Lancer la boucle radar",
+    weatherAlert: "Alerte météo",
+    activeWeatherAlert: "alerte météo active",
+    nwsAlertTap: "alerte NWS - toucher pour les détails",
+    severity: "Gravité",
+    unknown: "Inconnue",
+    forecastIntro: "Prévisions",
+    currently: "actuellement",
+    withHigh: "avec un maximum près de {temp}",
+    chancePrecip: "et {chance} % de risque de précipitations",
+    tonight: "Ce soir, le temps sera {condition}",
+    withLow: "avec un minimum près de {temp}",
+    tomorrow: "Demain, le temps sera {condition}",
+    nearTemp: "près de {temp}",
+    conditions: {
+      sunny: "ensoleillé",
+      "clear night": "dégagé",
+      "partly cloudy": "partiellement nuageux",
+      cloudy: "nuageux",
+      rainy: "pluvieux",
+      pouring: "forte pluie",
+      lightning: "orages possibles",
+      "lightning rainy": "orages possibles",
+      snowy: "neigeux",
+      "snowy rainy": "précipitations hivernales mixtes",
+      fog: "brumeux",
+      windy: "venteux",
+      "windy variant": "venteux avec des nuages",
+      unavailable: "indisponible"
+    }
+  },
+  es: {
+    am: "a. m.",
+    pm: "p. m.",
+    currentWeather: "Tiempo actual",
+    selectWeatherEntity: "Selecciona una entidad meteorológica",
+    connectWeather: "Conecta el tiempo en Home Assistant",
+    openEditor: "Abre el editor de la tarjeta para terminar",
+    waitingLive: "Esperando datos meteorológicos en vivo",
+    updated: "Actualizado",
+    forecast: "Pronóstico",
+    daily: "Diario",
+    hourly: "Por hora",
+    dayPeriod: "Día",
+    nightPeriod: "Noche",
+    humidity: "Humedad",
+    wind: "Viento",
+    sunrise: "Amanecer",
+    sunset: "Atardecer",
+    waitingForecast: "Esperando datos de pronóstico de Home Assistant.",
+    relativeTemp: "Temperatura relativa en las filas de pronóstico visibles",
+    radarLoading: "Cargando radar...",
+    radarUnavailable: "Radar no disponible",
+    radarWaiting: "El radar espera el diseño del panel",
+    rainviewerUnavailable: "Radar RainViewer no disponible",
+    currentRadar: "radar actual",
+    radarLoop: "bucle de radar",
+    futureRadar: "radar futuro",
+    previousRadarFrame: "Fotograma de radar anterior",
+    nextRadarFrame: "Siguiente fotograma de radar",
+    pauseRadarLoop: "Pausar bucle de radar",
+    playRadarLoop: "Reproducir bucle de radar",
+    weatherAlert: "Alerta meteorológica",
+    activeWeatherAlert: "alerta meteorológica activa",
+    nwsAlertTap: "alerta NWS - toca para ver detalles",
+    severity: "Severidad",
+    unknown: "Desconocida",
+    forecastIntro: "Pronóstico",
+    currently: "actualmente",
+    withHigh: "con una máxima cerca de {temp}",
+    chancePrecip: "y un {chance} % de probabilidad de precipitación",
+    tonight: "Esta noche estará {condition}",
+    withLow: "con una mínima cerca de {temp}",
+    tomorrow: "Mañana estará {condition}",
+    nearTemp: "cerca de {temp}",
+    conditions: {
+      sunny: "soleado",
+      "clear night": "despejado",
+      "partly cloudy": "parcialmente nublado",
+      cloudy: "nublado",
+      rainy: "lluvioso",
+      pouring: "lluvia intensa",
+      lightning: "posibles tormentas",
+      "lightning rainy": "posibles tormentas",
+      snowy: "nevado",
+      "snowy rainy": "precipitación invernal mixta",
+      fog: "con niebla",
+      windy: "ventoso",
+      "windy variant": "ventoso con nubes",
+      unavailable: "no disponible"
+    }
+  },
+  de: {
+    am: "AM",
+    pm: "PM",
+    currentWeather: "Aktuelles Wetter",
+    selectWeatherEntity: "Wetter-Entität auswählen",
+    connectWeather: "Wetter in Home Assistant verbinden",
+    openEditor: "Karteneditor öffnen, um die Einrichtung abzuschließen",
+    waitingLive: "Warte auf Live-Wetterdaten",
+    updated: "Aktualisiert",
+    forecast: "Vorhersage",
+    daily: "Täglich",
+    hourly: "Stündlich",
+    dayPeriod: "Tag",
+    nightPeriod: "Nacht",
+    humidity: "Luftfeuchtigkeit",
+    wind: "Wind",
+    sunrise: "Sonnenaufgang",
+    sunset: "Sonnenuntergang",
+    waitingForecast: "Warte auf Vorhersagedaten von Home Assistant.",
+    relativeTemp: "Relative Temperatur in den sichtbaren Vorhersagezeilen",
+    radarLoading: "Radar wird geladen...",
+    radarUnavailable: "Radar nicht verfügbar",
+    radarWaiting: "Radar wartet auf das Dashboard-Layout",
+    rainviewerUnavailable: "RainViewer-Radar nicht verfügbar",
+    currentRadar: "aktuelles Radar",
+    radarLoop: "Radarschleife",
+    futureRadar: "Zukunftsradar",
+    previousRadarFrame: "Vorheriges Radarbild",
+    nextRadarFrame: "Nächstes Radarbild",
+    pauseRadarLoop: "Radarschleife pausieren",
+    playRadarLoop: "Radarschleife starten",
+    weatherAlert: "Wetterwarnung",
+    activeWeatherAlert: "aktive Wetterwarnung",
+    nwsAlertTap: "NWS-Warnung - für Details antippen",
+    severity: "Schweregrad",
+    unknown: "Unbekannt",
+    forecastIntro: "Vorhersage",
+    currently: "derzeit",
+    withHigh: "mit einem Höchstwert um {temp}",
+    chancePrecip: "und {chance} % Niederschlagswahrscheinlichkeit",
+    tonight: "Heute Nacht wird es {condition}",
+    withLow: "mit einem Tiefstwert um {temp}",
+    tomorrow: "Morgen wird es {condition}",
+    nearTemp: "um {temp}",
+    conditions: {
+      sunny: "sonnig",
+      "clear night": "klar",
+      "partly cloudy": "teilweise bewölkt",
+      cloudy: "bewölkt",
+      rainy: "regnerisch",
+      pouring: "starker Regen",
+      lightning: "Gewitter möglich",
+      "lightning rainy": "Gewitter möglich",
+      snowy: "verschneit",
+      "snowy rainy": "gemischter winterlicher Niederschlag",
+      fog: "neblig",
+      windy: "windig",
+      "windy variant": "windig mit Wolken",
+      unavailable: "nicht verfügbar"
+    }
+  },
+  pt: {
+    am: "AM",
+    pm: "PM",
+    currentWeather: "Tempo atual",
+    selectWeatherEntity: "Selecione uma entidade de meteorologia",
+    connectWeather: "Ligue a meteorologia no Home Assistant",
+    openEditor: "Abra o editor do cartão para terminar",
+    waitingLive: "A aguardar dados meteorológicos em direto",
+    updated: "Atualizado",
+    forecast: "Previsão",
+    daily: "Diária",
+    hourly: "Por hora",
+    dayPeriod: "Dia",
+    nightPeriod: "Noite",
+    humidity: "Humidade",
+    wind: "Vento",
+    sunrise: "Nascer do sol",
+    sunset: "Pôr do sol",
+    waitingForecast: "A aguardar dados de previsão do Home Assistant.",
+    relativeTemp: "Temperatura relativa nas linhas de previsão visíveis",
+    radarLoading: "A carregar radar...",
+    radarUnavailable: "Radar indisponível",
+    radarWaiting: "Radar à espera do layout do painel",
+    rainviewerUnavailable: "Radar RainViewer indisponível",
+    currentRadar: "radar atual",
+    radarLoop: "ciclo de radar",
+    futureRadar: "radar futuro",
+    previousRadarFrame: "Imagem de radar anterior",
+    nextRadarFrame: "Próxima imagem de radar",
+    pauseRadarLoop: "Pausar ciclo de radar",
+    playRadarLoop: "Reproduzir ciclo de radar",
+    weatherAlert: "Alerta meteorológico",
+    activeWeatherAlert: "alerta meteorológico ativo",
+    nwsAlertTap: "alerta NWS - toque para detalhes",
+    severity: "Severidade",
+    unknown: "Desconhecida",
+    forecastIntro: "Previsão",
+    currently: "atualmente",
+    withHigh: "com máxima perto de {temp}",
+    chancePrecip: "e {chance}% de probabilidade de precipitação",
+    tonight: "Hoje à noite estará {condition}",
+    withLow: "com mínima perto de {temp}",
+    tomorrow: "Amanhã estará {condition}",
+    nearTemp: "perto de {temp}",
+    conditions: {
+      sunny: "ensolarado",
+      "clear night": "limpo",
+      "partly cloudy": "parcialmente nublado",
+      cloudy: "nublado",
+      rainy: "chuvoso",
+      pouring: "chuva forte",
+      lightning: "possíveis trovoadas",
+      "lightning rainy": "possíveis trovoadas",
+      snowy: "com neve",
+      "snowy rainy": "precipitação invernal mista",
+      fog: "com nevoeiro",
+      windy: "ventoso",
+      "windy variant": "ventoso com nuvens",
+      unavailable: "indisponível"
+    }
+  }
+};
+
 function isWeatherWiseHumidityEntity(entityId, state) {
   if (!entityId) return false;
   const friendly = String(state?.attributes?.friendly_name || "").toLowerCase();
@@ -77,6 +394,7 @@ class WeatherWiseCard extends HTMLElement {
       radar_provider: "auto",
       theme_mode: "weatherwise",
       units: "auto",
+      language: "auto",
       layout: "auto",
       hourly_count: 5,
       forecast_count: 5,
@@ -228,6 +546,7 @@ class WeatherWiseCard extends HTMLElement {
     const radarBasemap = String(config.radar_basemap || "light").toLowerCase();
     const radarTimeline = String(config.radar_timeline || "loop").toLowerCase();
     const layout = String(config.layout || "auto").toLowerCase();
+    const language = String(config.language || config.forecast_summary_language || "auto").toLowerCase();
     return {
       title: "Local Weather",
       humidity_entity: "",
@@ -236,6 +555,7 @@ class WeatherWiseCard extends HTMLElement {
       radar_provider: WEATHERWISE_RADAR[radarProvider] ? radarProvider : "auto",
       theme_mode: themeMode,
       units,
+      language: "auto",
       layout: "auto",
       hourly_count: 5,
       forecast_count: 5,
@@ -258,6 +578,7 @@ class WeatherWiseCard extends HTMLElement {
       radar_basemap: WEATHERWISE_BASEMAPS[radarBasemap] ? radarBasemap : "light",
       radar_timeline: WEATHERWISE_RADAR_TIMELINES[radarTimeline] ? radarTimeline : "loop",
       layout: WEATHERWISE_LAYOUTS[layout] ? layout : "auto",
+      language: WEATHERWISE_LANGUAGES[language] ? language : "auto",
       latitude: this._numberOr(config.latitude, undefined),
       longitude: this._numberOr(config.longitude, undefined),
       hourly_count: Math.max(1, Math.min(24, Number(config.hourly_count) || 5)),
@@ -304,6 +625,7 @@ class WeatherWiseCard extends HTMLElement {
         this._config.layout,
         this._config.theme_mode,
         this._config.units,
+        this._language(),
         this._config.show_radar,
         this._config.show_timeline,
         this._config.show_forecast,
@@ -348,8 +670,37 @@ class WeatherWiseCard extends HTMLElement {
     return Array.isArray(byEntity?.forecast) ? byEntity.forecast : [];
   }
 
+  _language() {
+    const configured = String(this._config.language || this._config.forecast_summary_language || "auto").toLowerCase();
+    if (WEATHERWISE_TEXT[configured]) return configured;
+    const browserLanguage = typeof navigator !== "undefined" ? navigator.language : "en";
+    const locale = String(this._hass?.locale?.language || this._hass?.language || browserLanguage || "en").toLowerCase();
+    const code = locale.split(/[-_]/)[0];
+    return WEATHERWISE_TEXT[code] ? code : "en";
+  }
+
+  _texts() {
+    return WEATHERWISE_TEXT[this._language()] || WEATHERWISE_TEXT.en;
+  }
+
+  _localeCode() {
+    const configured = String(this._config.language || "auto").toLowerCase();
+    if (configured !== "auto" && WEATHERWISE_TEXT[configured]) return configured;
+    const browserLanguage = typeof navigator !== "undefined" ? navigator.language : "en";
+    return this._hass?.locale?.language || this._hass?.language || browserLanguage || "en";
+  }
+
+  _t(key) {
+    return this._texts()[key] ?? WEATHERWISE_TEXT.en[key] ?? key;
+  }
+
+  _template(key, values = {}) {
+    return String(this._t(key)).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+  }
+
   _render() {
     if (!this.shadowRoot) return;
+    const text = this._texts();
     const stateObj = this._hass?.states?.[this._config.entity];
     const attrs = stateObj?.attributes || {};
     const condition = stateObj?.state || "unavailable";
@@ -383,7 +734,7 @@ class WeatherWiseCard extends HTMLElement {
               <div class="clock-panel">
                 <div class="clock-row">
                   <div class="clock-time" id="clock-time">${this._clockTime(now)}</div>
-                  <div class="clock-ampm" id="clock-ampm">${now.getHours() >= 12 ? "PM" : "AM"}</div>
+                  <div class="clock-ampm" id="clock-ampm">${now.getHours() >= 12 ? this._t("pm") : this._t("am")}</div>
                 </div>
                 <div class="clock-date" id="clock-date">${this._longDate(now)}</div>
                 ${this._config.show_forecast_summary === false ? "" : `<div class="forecast-summary" title="${this._escape(forecastSummary)}"><span class="forecast-summary-text">${this._escape(forecastSummary)}</span></div>`}
@@ -397,9 +748,9 @@ class WeatherWiseCard extends HTMLElement {
               <div class="current-row">
                 <div class="current-icon">${this._icon(displayCondition, 62)}</div>
                 <div class="cond-block">
-                  <div class="current-label">Current Weather</div>
-                  <div class="cond-name">${needsEntity ? "Select a weather entity" : unavailable ? "Connect weather in Home Assistant" : this._escape(this._titleCase(displayCondition))}</div>
-                  <div class="updated-note">${needsEntity ? "Open the card editor to finish setup" : unavailable ? "Waiting for live weather data" : `Updated ${this._shortTime(now)}`}</div>
+                  <div class="current-label">${this._escape(text.currentWeather)}</div>
+                  <div class="cond-name">${needsEntity ? this._escape(text.selectWeatherEntity) : unavailable ? this._escape(text.connectWeather) : this._escape(this._conditionLabel(displayCondition))}</div>
+                  <div class="updated-note">${needsEntity ? this._escape(text.openEditor) : unavailable ? this._escape(text.waitingLive) : `${this._escape(text.updated)} ${this._shortTime(now)}`}</div>
                 </div>
                 <div class="temp-block">
                   <div class="temp-now">${temp}</div>
@@ -408,10 +759,10 @@ class WeatherWiseCard extends HTMLElement {
               </div>
               ${this._config.show_forecast === false ? "" : `<div class="daily-strip">${this._renderDaily(mainPeriods, units)}</div>`}
               <div class="stats-row">
-                ${this._stat("humidity", "Humidity", `${humidity}%`)}
-                ${this._stat("wind", "Wind", wind)}
-                ${this._stat("sunrise", "Sunrise", this._shortTime(sun.next_rising))}
-                ${this._stat("sunset", "Sunset", this._shortTime(sun.next_setting))}
+                ${this._stat("humidity", text.humidity, `${humidity}%`)}
+                ${this._stat("wind", text.wind, wind)}
+                ${this._stat("sunrise", text.sunrise, this._shortTime(sun.next_rising))}
+                ${this._stat("sunset", text.sunset, this._shortTime(sun.next_setting))}
               </div>
               ${this._renderDebug({ stateObj, hourly, daily, twiceDaily, provider, units })}
             </section>
@@ -420,12 +771,12 @@ class WeatherWiseCard extends HTMLElement {
                 <div id="rmap"></div>
                 ${this._config.radar_controls === false ? "" : `
                   <div class="radar-controls" aria-label="Radar playback controls">
-                    <button type="button" data-radar-action="prev" title="Previous radar frame" aria-label="Previous radar frame">&lt;</button>
-                    <button type="button" data-radar-action="play" title="Pause radar loop" aria-label="Pause radar loop">||</button>
-                    <button type="button" data-radar-action="next" title="Next radar frame" aria-label="Next radar frame">&gt;</button>
+                    <button type="button" data-radar-action="prev" title="${this._escape(text.previousRadarFrame)}" aria-label="${this._escape(text.previousRadarFrame)}">&lt;</button>
+                    <button type="button" data-radar-action="play" title="${this._escape(text.pauseRadarLoop)}" aria-label="${this._escape(text.pauseRadarLoop)}">||</button>
+                    <button type="button" data-radar-action="next" title="${this._escape(text.nextRadarFrame)}" aria-label="${this._escape(text.nextRadarFrame)}">&gt;</button>
                   </div>
                 `}
-                <div class="radar-lbl" id="radar-lbl">Radar loading...</div>
+                <div class="radar-lbl" id="radar-lbl">${this._escape(text.radarLoading)}</div>
                 <div class="radar-alert" id="radar-alert" hidden></div>
               </section>
             ` : ""}
@@ -461,7 +812,7 @@ class WeatherWiseCard extends HTMLElement {
     const rect = holder.getBoundingClientRect();
     if (rect.width < 50 || rect.height < 50) {
       if (attempt < 24) window.setTimeout(() => this._scheduleRadarInit(provider, attempt + 1), 250);
-      else this._setRadarLabel("Radar waiting for dashboard layout");
+      else this._setRadarLabel(this._t("radarWaiting"));
       return;
     }
     this._initRadar(provider);
@@ -495,18 +846,18 @@ class WeatherWiseCard extends HTMLElement {
     const ampm = this.shadowRoot?.getElementById("clock-ampm");
     const date = this.shadowRoot?.getElementById("clock-date");
     if (time) time.textContent = this._clockTime(now);
-    if (ampm) ampm.textContent = now.getHours() >= 12 ? "PM" : "AM";
+    if (ampm) ampm.textContent = now.getHours() >= 12 ? this._t("pm") : this._t("am");
     if (date) date.textContent = this._longDate(now);
   }
 
   _timelineTitle(mode) {
-    if (mode === "twice_daily") return "Forecast";
-    if (mode === "daily") return "Daily";
-    return "Hourly";
+    if (mode === "twice_daily") return this._t("forecast");
+    if (mode === "daily") return this._t("daily");
+    return this._t("hourly");
   }
 
   _renderTimeline(periods, units, mode = "hourly") {
-    if (!periods.length) return `<div class="loading-note">Waiting for Home Assistant forecast data.</div>`;
+    if (!periods.length) return `<div class="loading-note">${this._escape(this._t("waitingForecast"))}</div>`;
     const slice = periods.slice(0, Number(this._config.hourly_count) || 5);
     const temps = slice.map((item) => this._tempValue(item.temperature, units)).filter(Number.isFinite);
     const min = temps.length ? Math.min(...temps) : 0;
@@ -520,7 +871,7 @@ class WeatherWiseCard extends HTMLElement {
           <div class="hour-time-left">${this._timelineTime(item, mode)}</div>
           <div class="hour-icon-left">${this._icon(item.condition || item.state, 23)}</div>
           <div class="hour-temp-left">${this._displayTemp(item.temperature, units, false)}</div>
-          <div class="hour-bar-wrap" title="Relative temperature within the visible forecast rows"><div class="hour-bar-fill" style="width:${pct}%"></div></div>
+          <div class="hour-bar-wrap" title="${this._escape(this._t("relativeTemp"))}"><div class="hour-bar-fill" style="width:${pct}%"></div></div>
           <div class="hour-precip">${this._formatPrecip(item, units)}</div>
         </div>
       `;
@@ -530,14 +881,14 @@ class WeatherWiseCard extends HTMLElement {
   _timelineTime(item, mode) {
     if (mode === "hourly") return this._hour(item.datetime);
     const day = this._dayName(item.datetime);
-    if (mode === "twice_daily" && item.is_daytime !== undefined) return `${day} ${item.is_daytime ? "Day" : "Night"}`;
+    if (mode === "twice_daily" && item.is_daytime !== undefined) return `${day} ${item.is_daytime ? this._t("dayPeriod") : this._t("nightPeriod")}`;
     return day;
   }
 
   _renderDaily(periods, units) {
-    if (!periods.length) return `<div class="loading-note">Waiting for Home Assistant forecast data.</div>`;
+    if (!periods.length) return `<div class="loading-note">${this._escape(this._t("waitingForecast"))}</div>`;
     return periods.slice(0, Number(this._config.forecast_count) || 5).map((item) => {
-      const period = item.is_daytime === undefined ? "" : item.is_daytime ? "Day" : "Night";
+      const period = item.is_daytime === undefined ? "" : item.is_daytime ? this._t("dayPeriod") : this._t("nightPeriod");
       return `
         <div class="fc-slot">
           <div>
@@ -556,20 +907,20 @@ class WeatherWiseCard extends HTMLElement {
     const parts = [];
     const todayHigh = this._summaryHigh(daily, hourly, units);
     const todayChance = this._summaryPrecipChance([...(hourly || []).slice(0, 8), daily?.[0], twiceDaily?.[0]]);
-    const nowPhrase = this._conditionWords(condition);
-    let opener = `Forecast vibe: ${nowPhrase}`;
-    if (Number.isFinite(todayHigh)) opener += ` with a high near ${Math.round(todayHigh)}°`;
-    if (Number.isFinite(todayChance)) opener += ` and a ${Math.round(todayChance)}% chance of sky shenanigans`;
+    const nowPhrase = this._localizedCondition(condition);
+    let opener = `${this._t("forecastIntro")}: ${this._t("currently")} ${nowPhrase}`;
+    if (Number.isFinite(todayHigh)) opener += `, ${this._template("withHigh", { temp: `${Math.round(todayHigh)}°` })}`;
+    if (Number.isFinite(todayChance)) opener += ` ${this._template("chancePrecip", { chance: Math.round(todayChance) })}`;
     parts.push(`${opener}.`);
 
     const tonight = this._firstNightPeriod(twiceDaily, daily);
     if (tonight) {
       const tonightTemp = this._tempValue(tonight.templow ?? tonight.low_temperature ?? tonight.temperature, units);
       const tonightChance = this._precipProbability(tonight);
-      const tonightWords = this._conditionWords(tonight.condition || tonight.state);
-      const bits = [`Tonight looks ${tonightWords}`];
-      if (Number.isFinite(tonightTemp)) bits.push(`with a low around ${Math.round(tonightTemp)}°`);
-      if (Number.isFinite(tonightChance)) bits.push(`${Math.round(tonightChance)}% chance of weather mischief`);
+      const tonightWords = this._localizedCondition(tonight.condition || tonight.state);
+      const bits = [this._template("tonight", { condition: tonightWords })];
+      if (Number.isFinite(tonightTemp)) bits.push(this._template("withLow", { temp: `${Math.round(tonightTemp)}°` }));
+      if (Number.isFinite(tonightChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tonightChance) }));
       parts.push(`${bits.join(", ")}.`);
     }
 
@@ -577,10 +928,10 @@ class WeatherWiseCard extends HTMLElement {
     if (tomorrow) {
       const tomorrowTemp = this._tempValue(tomorrow.temperature ?? tomorrow.high_temperature, units);
       const tomorrowChance = this._precipProbability(tomorrow);
-      const tomorrowWords = this._conditionWords(tomorrow.condition || tomorrow.state);
-      const bits = [`Tomorrow brings ${tomorrowWords}`];
-      if (Number.isFinite(tomorrowTemp)) bits.push(`near ${Math.round(tomorrowTemp)}°`);
-      if (Number.isFinite(tomorrowChance)) bits.push(`${Math.round(tomorrowChance)}% chance of extra drama`);
+      const tomorrowWords = this._localizedCondition(tomorrow.condition || tomorrow.state);
+      const bits = [this._template("tomorrow", { condition: tomorrowWords })];
+      if (Number.isFinite(tomorrowTemp)) bits.push(this._template("nearTemp", { temp: `${Math.round(tomorrowTemp)}°` }));
+      if (Number.isFinite(tomorrowChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tomorrowChance) }));
       parts.push(`${bits.join(", ")}.`);
     }
 
@@ -612,24 +963,18 @@ class WeatherWiseCard extends HTMLElement {
       || null;
   }
 
-  _conditionWords(condition) {
+  _localizedCondition(condition) {
     const value = String(condition || "weather").replace(/[-_]+/g, " ").trim().toLowerCase();
-    const phrases = {
-      sunny: "sunny and doing sunny things",
-      "clear night": "clear and calm",
-      "partly cloudy": "partly cloudy with some personality",
-      cloudy: "cloudy but still behaving",
-      rainy: "rainy, so keep the umbrella nearby",
-      pouring: "pouring with commitment",
-      lightning: "stormy with a little attitude",
-      "lightning rainy": "stormy with a little attitude",
-      snowy: "snowy and dramatic",
-      "snowy rainy": "messy wintry weather",
-      fog: "foggy and mysterious",
-      windy: "breezy enough to notice",
-      "windy variant": "breezy enough to notice"
-    };
-    return phrases[value] || value || "weather";
+    return this._texts().conditions?.[value]
+      || WEATHERWISE_TEXT.en.conditions[value]
+      || value
+      || "weather";
+  }
+
+  _conditionLabel(condition) {
+    if (this._language() === "en") return this._titleCase(condition);
+    const localized = this._localizedCondition(condition);
+    return localized ? localized.charAt(0).toLocaleUpperCase(this._localeCode()) + localized.slice(1) : "--";
   }
 
   _stat(kind, label, value) {
@@ -677,7 +1022,7 @@ class WeatherWiseCard extends HTMLElement {
         }, 500);
       });
     } catch (err) {
-      this._setRadarLabel("Radar unavailable");
+      this._setRadarLabel(this._t("radarUnavailable"));
       this._teardownRadar();
     }
   }
@@ -814,7 +1159,7 @@ class WeatherWiseCard extends HTMLElement {
       const frames = this._rainViewerFrames(data);
       const host = data?.host || "https://tilecache.rainviewer.com";
       if (!frames.length) throw new Error("No RainViewer frames");
-      this._radarLabelText = this._config.radar_timeline === "future" ? "RainViewer future radar" : "RainViewer radar";
+      this._radarLabelText = this._config.radar_timeline === "future" ? `RainViewer ${this._t("futureRadar")}` : `RainViewer ${this._t("radarLoop")}`;
       this._replaceRadarLayers(frames.slice(-12).map((frame, index, list) => ({
         time: new Date(frame.time * 1000),
         layer: window.L.tileLayer(`${host}${frame.path}/256/{z}/{x}/{y}/${this._rainViewerColor()}/1_1.png`, {
@@ -826,14 +1171,14 @@ class WeatherWiseCard extends HTMLElement {
       if (label) label.textContent = `${this._shortTime(this._radarLayers[this._radarLayers.length - 1].time)} ${this._radarLabelText}`;
       this._animateRadar(this._radarLabelText);
     } catch (err) {
-      if (label) label.textContent = "RainViewer radar unavailable";
+      if (label) label.textContent = this._t("rainviewerUnavailable");
     }
   }
 
   async _loadNoaaLoop() {
     const frames = this._noaaFrames();
     const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
-    this._radarLabelText = selectedFrames.length === 1 ? "NOAA current radar" : "NOAA radar loop";
+    this._radarLabelText = selectedFrames.length === 1 ? `NOAA ${this._t("currentRadar")}` : `NOAA ${this._t("radarLoop")}`;
     this._replaceRadarLayers(selectedFrames.map((frameTime, index) => ({
       time: frameTime,
       layer: window.L.imageOverlay(this._noaaUrl(frameTime), this._radarMap.getBounds(), {
@@ -850,7 +1195,7 @@ class WeatherWiseCard extends HTMLElement {
   async _loadEnvCanadaLoop() {
     const frames = this._envCanadaFrames();
     const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
-    this._radarLabelText = selectedFrames.length === 1 ? "Environment Canada current radar" : "Environment Canada radar loop";
+    this._radarLabelText = selectedFrames.length === 1 ? `Environment Canada ${this._t("currentRadar")}` : `Environment Canada ${this._t("radarLoop")}`;
     this._replaceRadarLayers(selectedFrames.map((frameTime, index) => ({
       time: frameTime,
       layer: window.L.tileLayer.wms("https://geo.weather.gc.ca/geomet", {
@@ -902,7 +1247,7 @@ class WeatherWiseCard extends HTMLElement {
     const button = this.shadowRoot?.querySelector('[data-radar-action="play"]');
     if (!button) return;
     button.textContent = this._radarPlaying ? "||" : ">";
-    button.title = this._radarPlaying ? "Pause radar loop" : "Play radar loop";
+    button.title = this._radarPlaying ? this._t("pauseRadarLoop") : this._t("playRadarLoop");
     button.setAttribute("aria-label", button.title);
   }
 
@@ -1025,7 +1370,7 @@ class WeatherWiseCard extends HTMLElement {
           onEachFeature: (feature, layer) => layer.bindPopup?.(this._alertPopup(feature.properties || {}))
         }).addTo(group);
       }
-      const headline = features[0]?.properties?.headline || `${features.length} active weather alert${features.length === 1 ? "" : "s"}`;
+      const headline = features[0]?.properties?.headline || `${features.length} ${this._t("activeWeatherAlert")}${features.length === 1 ? "" : "s"}`;
       const popupHtml = this._alertPopup(features[0]?.properties || { headline });
       const marker = window.L.circleMarker([lat, lon], {
         radius: 9,
@@ -1048,12 +1393,12 @@ class WeatherWiseCard extends HTMLElement {
       }).bindPopup(popupHtml, { closeButton: true, autoPan: true }).addTo(group);
       this._warningPopupMarker = marker;
       this._warningLayer = group.addTo(this._radarMap);
-      if (label) label.textContent = `${label.textContent} • ${features.length} alert${features.length === 1 ? "" : "s"}`;
+      if (label) label.textContent = `${label.textContent} • ${features.length} ${this._t("activeWeatherAlert")}${features.length === 1 ? "" : "s"}`;
       if (alert) {
         alert.hidden = false;
         alert.setAttribute("role", "button");
         alert.setAttribute("tabindex", "0");
-        alert.textContent = `${features.length} NWS alert${features.length === 1 ? "" : "s"} - tap for details`;
+        alert.textContent = `${features.length} ${this._t("nwsAlertTap")}${features.length === 1 ? "" : "s"}`;
         alert.title = headline;
         alert.onclick = (event) => {
           event.stopPropagation();
@@ -1067,7 +1412,7 @@ class WeatherWiseCard extends HTMLElement {
         };
       }
     } catch (err) {
-      if (label && this._config.debug?.enabled) label.textContent = `${label.textContent} + alerts unavailable`;
+      if (label && this._config.debug?.enabled) label.textContent = `${label.textContent} + ${this._t("radarUnavailable")}`;
     }
   }
 
@@ -1083,10 +1428,10 @@ class WeatherWiseCard extends HTMLElement {
   }
 
   _alertPopup(props) {
-    const event = this._escape(props.event || "Weather alert");
+    const event = this._escape(props.event || this._t("weatherAlert"));
     const headline = this._escape(props.headline || "");
-    const severity = this._escape(props.severity || "Unknown");
-    return `<strong>${event}</strong><br>${headline}<br>Severity: ${severity}`;
+    const severity = this._escape(props.severity || this._t("unknown"));
+    return `<strong>${event}</strong><br>${headline}<br>${this._escape(this._t("severity"))}: ${severity}`;
   }
 
   _unitContext(attrs) {
@@ -1233,25 +1578,28 @@ class WeatherWiseCard extends HTMLElement {
   _shortTime(dateLike) {
     const date = new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "--";
-    return `${(date.getHours() % 12) || 12}:${String(date.getMinutes()).padStart(2, "0")} ${date.getHours() >= 12 ? "PM" : "AM"}`;
+    return `${(date.getHours() % 12) || 12}:${String(date.getMinutes()).padStart(2, "0")} ${date.getHours() >= 12 ? this._t("pm") : this._t("am")}`;
   }
 
   _hour(dateLike) {
     const date = new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "--";
-    return `${(date.getHours() % 12) || 12} ${date.getHours() >= 12 ? "PM" : "AM"}`;
+    return `${(date.getHours() % 12) || 12} ${date.getHours() >= 12 ? this._t("pm") : this._t("am")}`;
   }
 
   _dayName(dateLike) {
     const date = new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "--";
-    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
+    return new Intl.DateTimeFormat(this._localeCode(), { weekday: "short" }).format(date);
   }
 
   _longDate(date) {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    return new Intl.DateTimeFormat(this._localeCode(), {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    }).format(date);
   }
 
   _titleCase(text) {
@@ -1464,7 +1812,11 @@ class WeatherWiseCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = { ...WeatherWiseCard.getStubConfig(), ...(config || {}) };
+    this._config = {
+      ...WeatherWiseCard.getStubConfig(),
+      ...(config || {}),
+      language: config?.language || config?.forecast_summary_language || "auto"
+    };
     this._render();
   }
 
@@ -1632,6 +1984,11 @@ class WeatherWiseCardEditor extends HTMLElement {
                 <option value="auto" ${config.theme_mode === "auto" ? "selected" : ""}>Home Assistant theme</option>
               </select>
             </label>
+            <label>Language
+              <select id="language">
+                ${Object.entries(WEATHERWISE_LANGUAGES).map(([value, label]) => `<option value="${value}" ${(config.language || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
             <label>Layout
               <select id="layout">
                 ${Object.entries(WEATHERWISE_LAYOUTS).map(([value, label]) => `<option value="${value}" ${(config.layout || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
@@ -1640,7 +1997,7 @@ class WeatherWiseCardEditor extends HTMLElement {
             <label>Forecast list rows <input id="hourly_count" type="number" min="1" max="24" value="${this._escape(config.hourly_count || 5)}"></label>
             <label>Forecast cards <input id="forecast_count" type="number" min="1" max="7" value="${this._escape(config.forecast_count || 5)}"></label>
           </div>
-          <label class="check"><input id="show_forecast_summary" type="checkbox" ${config.show_forecast_summary === false ? "" : "checked"}> Show playful forecast summary</label>
+          <label class="check"><input id="show_forecast_summary" type="checkbox" ${config.show_forecast_summary === false ? "" : "checked"}> Show forecast summary</label>
           <label class="check"><input id="show_timeline" type="checkbox" ${config.show_timeline === false ? "" : "checked"}> Show hourly / forecast list</label>
           <label class="check"><input id="show_forecast" type="checkbox" ${config.show_forecast === false ? "" : "checked"}> Show daily forecast cards</label>
           <label class="check"><input id="show_animations" type="checkbox" ${config.show_animations === false ? "" : "checked"}> Subtle weather animations</label>
@@ -1662,7 +2019,7 @@ class WeatherWiseCardEditor extends HTMLElement {
         </div>
       </div>
     `;
-    ["entity", "temperature_entity", "humidity_entity", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "layout", "latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"].forEach((id) => {
+    ["entity", "temperature_entity", "humidity_entity", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "layout", "latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
     ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary"].forEach((id) => {

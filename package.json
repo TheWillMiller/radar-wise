@@ -1,6 +1,6 @@
 {
   "name": "weatherwise-card",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Weather dashboard custom card for Home Assistant with forecasts and optional radar.",
   "type": "module",
   "files": [

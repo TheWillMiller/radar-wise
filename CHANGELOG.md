@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.7
+
+### Added
+
+- Added card language support for Auto, English, French, Spanish, German, and Portuguese.
+- Added a visual editor language selector.
+- Localized the main card labels, date/day labels, radar controls, alert labels, condition text, and forecast summary.
+
+### Changed
+
+- Reworked the forecast summary from playful/comical wording to a calmer conversational weather forecast style.
+
 ## 0.3.6
 
 ### Added
