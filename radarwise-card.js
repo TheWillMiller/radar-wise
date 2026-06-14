@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.0";
+const CARD_VERSION = "0.8.1";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -1256,12 +1256,15 @@ class RadarWiseCard extends HTMLElement {
     const displayCondition = this._displayCondition(condition, sunStateObj);
     const units = this._unitContext(attrs);
     const temp = this._displayTemp(this._currentTemperature(attrs), units);
-    const humidity = this._humidity(attrs);
-    const dewPoint = this._dewPoint(attrs, units);
     const wind = this._formatWind(attrs, units);
     const hourly = this._forecasts.hourly || [];
     const daily = this._forecasts.daily || [];
     const twiceDaily = this._forecasts.twice_daily || [];
+    const forecastSources = [hourly, twiceDaily, daily];
+    const humidityInfo = this._humidityInfo(attrs, forecastSources);
+    const dewPointInfo = this._dewPointInfo(attrs, units, forecastSources);
+    const humidity = humidityInfo.display;
+    const dewPoint = dewPointInfo.display;
     const timeline = hourly.length ? hourly : twiceDaily.length ? twiceDaily : daily;
     const timelineMode = hourly.length ? "hourly" : twiceDaily.length ? "twice_daily" : daily.length ? "daily" : "hourly";
     const mainPeriods = twiceDaily.length ? twiceDaily : daily.length ? daily : hourly;
@@ -1347,7 +1350,6 @@ class RadarWiseCard extends HTMLElement {
                     ${this._stat("sunset", text.sunset, this._shortTime(sun.next_setting))}
                   </div>
                 ` : ""}
-                ${this._renderDebug({ stateObj, hourly, daily, twiceDaily, provider, units })}
               </section>
             ` : ""}
             ${content.right ? `
@@ -1365,6 +1367,7 @@ class RadarWiseCard extends HTMLElement {
               </section>
             ` : ""}
           </div>
+          ${this._renderDebug({ stateObj, attrs, hourly, daily, twiceDaily, provider, units, humidityInfo, dewPointInfo })}
         </div>
       </ha-card>
     `;
@@ -1409,12 +1412,44 @@ class RadarWiseCard extends HTMLElement {
   _renderDebug(data) {
     const debug = this._config.debug;
     if (!debug || debug.enabled !== true || debug.panel !== true) return "";
+    const debugValue = (value) => {
+      if (value === undefined) return "missing";
+      if (value === null) return "null";
+      if (typeof value === "object") {
+        try {
+          return JSON.stringify(value);
+        } catch (err) {
+          return String(value);
+        }
+      }
+      return String(value);
+    };
+    const firstHourly = data.hourly?.[0] || {};
+    const firstTwiceDaily = data.twiceDaily?.[0] || {};
+    const firstDaily = data.daily?.[0] || {};
     const rows = [
       ["Version", CARD_VERSION],
       ["Entity", this._config.entity],
       ["Temperature entity", this._config.temperature_entity || "auto"],
       ["Humidity entity", this._config.humidity_entity || "auto"],
       ["Dew point entity", this._config.dew_point_entity || "auto"],
+      ["Resolved humidity", `${data.humidityInfo?.display ?? "--"}% via ${data.humidityInfo?.source || "missing"}`],
+      ["Resolved humidity raw", debugValue(data.humidityInfo?.raw)],
+      ["Resolved dew point", `${data.dewPointInfo?.display ?? "--"} via ${data.dewPointInfo?.source || "missing"}`],
+      ["Resolved dew point raw", debugValue(data.dewPointInfo?.raw)],
+      ["Weather humidity attrs", debugValue({
+        humidity: data.attrs?.humidity,
+        relative_humidity: data.attrs?.relative_humidity,
+        relativeHumidity: data.attrs?.relativeHumidity,
+        native_humidity: data.attrs?.native_humidity
+      })],
+      ["Weather dew point attrs", debugValue({
+        dew_point: data.attrs?.dew_point,
+        dewpoint: data.attrs?.dewpoint,
+        dewPoint: data.attrs?.dewPoint,
+        native_dew_point: data.attrs?.native_dew_point,
+        dew_point_temperature: data.attrs?.dew_point_temperature
+      })],
       ["Air quality entity", this._config.air_quality_entity || "none"],
       ["UV index entity", this._config.uv_index_entity || "auto"],
       ["Pollen entity", this._config.pollen_entity || "none"],
@@ -1433,6 +1468,16 @@ class RadarWiseCard extends HTMLElement {
       ["Hourly count", data.hourly.length],
       ["Daily count", data.daily.length],
       ["Twice daily count", data.twiceDaily.length],
+      ["First hourly keys", Object.keys(firstHourly).sort().join(", ") || "none"],
+      ["First hourly humidity/dew", debugValue({
+        humidity: firstHourly.humidity,
+        relative_humidity: firstHourly.relative_humidity,
+        dew_point: firstHourly.dew_point,
+        dewpoint: firstHourly.dewpoint
+      })],
+      ["First twice daily keys", Object.keys(firstTwiceDaily).sort().join(", ") || "none"],
+      ["First daily keys", Object.keys(firstDaily).sort().join(", ") || "none"],
+      ["Weather attr keys", Object.keys(data.attrs || {}).sort().join(", ") || "none"],
       ["State", data.stateObj?.state || "missing"]
     ];
     return `
@@ -2505,39 +2550,103 @@ class RadarWiseCard extends HTMLElement {
     return `${dir ? `${dir} ` : ""}${speed} ${attrs.wind_speed_unit || units.windSpeedUnit}`;
   }
 
-  _humidity(attrs) {
+  _candidateNumber(value) {
+    if (value && typeof value === "object") {
+      return this._numberOr(value.value ?? value.native_value ?? value.state, NaN);
+    }
+    return this._numberOr(value, NaN);
+  }
+
+  _forecastCandidate(forecastSources, keys) {
+    for (const periods of forecastSources || []) {
+      if (!Array.isArray(periods)) continue;
+      for (const item of periods.slice(0, 12)) {
+        for (const key of keys) {
+          const raw = item?.[key];
+          if (raw === undefined || raw === null || raw === "") continue;
+          const value = this._candidateNumber(raw);
+          if (Number.isFinite(value)) {
+            return { raw, value, source: `forecast.${key}` };
+          }
+        }
+      }
+    }
+    return { raw: undefined, value: NaN, source: "missing" };
+  }
+
+  _humidityInfo(attrs, forecastSources = []) {
     const configuredEntityId = this._config.humidity_entity;
     const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
     const configured = isRadarWiseHumidityEntity(configuredEntityId, configuredState) ? configuredState : null;
-    const values = [
-      configured?.state,
-      attrs.humidity,
-      attrs.relative_humidity,
-      attrs.relativeHumidity
+    const candidates = [
+      { raw: configured?.state, source: configuredEntityId ? `entity.${configuredEntityId}` : "entity.auto" },
+      { raw: attrs.humidity, source: "weather.attributes.humidity" },
+      { raw: attrs.relative_humidity, source: "weather.attributes.relative_humidity" },
+      { raw: attrs.relativeHumidity, source: "weather.attributes.relativeHumidity" },
+      { raw: attrs.native_humidity, source: "weather.attributes.native_humidity" }
     ];
-    const value = values.map((item) => this._numberOr(item, NaN)).find(Number.isFinite);
-    return Number.isFinite(value) ? String(Math.round(value)) : "--";
+    for (const candidate of candidates) {
+      const value = this._candidateNumber(candidate.raw);
+      if (Number.isFinite(value)) {
+        return { value, display: String(Math.round(value)), source: candidate.source, raw: candidate.raw };
+      }
+    }
+    const forecast = this._forecastCandidate(forecastSources, ["humidity", "relative_humidity", "relativeHumidity", "native_humidity"]);
+    if (Number.isFinite(forecast.value)) {
+      return { ...forecast, display: String(Math.round(forecast.value)) };
+    }
+    return { value: NaN, display: "--", source: "missing", raw: undefined };
   }
 
-  _dewPoint(attrs, units) {
+  _humidity(attrs, forecastSources = []) {
+    return this._humidityInfo(attrs, forecastSources).display;
+  }
+
+  _dewPointInfo(attrs, units, forecastSources = []) {
     const configuredEntityId = this._config.dew_point_entity;
     const configuredState = configuredEntityId ? this._hass?.states?.[configuredEntityId] : null;
     if (configuredState && isRadarWiseDewPointEntity(configuredEntityId, configuredState)) {
-      return this._displayTemp({
+      const value = {
         value: configuredState.state,
         unit: configuredState.attributes?.unit_of_measurement || configuredState.attributes?.native_unit_of_measurement || this._hass?.config?.unit_system?.temperature
-      }, units, false);
+      };
+      return {
+        value: this._tempValue(value, units),
+        display: this._displayTemp(value, units, false),
+        source: `entity.${configuredEntityId}`,
+        raw: configuredState.state
+      };
     }
-    const value = [
-      attrs.dew_point,
-      attrs.dewpoint,
-      attrs.dewPoint,
-      attrs.native_dew_point,
-      attrs.native_dewpoint,
-      attrs.dew_point_temperature,
-      attrs.dewpoint_temperature
-    ].find((item) => item !== undefined && item !== null && item !== "");
-    return value === undefined ? "--" : this._displayTemp(value, units, false);
+    const candidates = [
+      { raw: attrs.dew_point, source: "weather.attributes.dew_point" },
+      { raw: attrs.dewpoint, source: "weather.attributes.dewpoint" },
+      { raw: attrs.dewPoint, source: "weather.attributes.dewPoint" },
+      { raw: attrs.native_dew_point, source: "weather.attributes.native_dew_point" },
+      { raw: attrs.native_dewpoint, source: "weather.attributes.native_dewpoint" },
+      { raw: attrs.dew_point_temperature, source: "weather.attributes.dew_point_temperature" },
+      { raw: attrs.dewpoint_temperature, source: "weather.attributes.dewpoint_temperature" }
+    ];
+    for (const candidate of candidates) {
+      if (candidate.raw === undefined || candidate.raw === null || candidate.raw === "") continue;
+      return {
+        value: this._tempValue(candidate.raw, units),
+        display: this._displayTemp(candidate.raw, units, false),
+        source: candidate.source,
+        raw: candidate.raw
+      };
+    }
+    const forecast = this._forecastCandidate(forecastSources, ["dew_point", "dewpoint", "dewPoint", "native_dew_point", "native_dewpoint", "dew_point_temperature", "dewpoint_temperature"]);
+    if (Number.isFinite(forecast.value)) {
+      return {
+        ...forecast,
+        display: this._displayTemp(forecast.raw, units, false)
+      };
+    }
+    return { value: NaN, display: "--", source: "missing", raw: undefined };
+  }
+
+  _dewPoint(attrs, units, forecastSources = []) {
+    return this._dewPointInfo(attrs, units, forecastSources).display;
   }
 
   _latLon() {
@@ -2794,9 +2903,11 @@ class RadarWiseCard extends HTMLElement {
       .leaflet-popup-close-button{position:absolute;top:4px;right:8px;border:0;background:transparent;color:#0a1e2e;text-decoration:none;font-size:18px;font-weight:900;line-height:1;cursor:pointer}
       .loading-note{font-size:12px;color:var(--ww-muted);font-weight:800;opacity:.8;padding:10px}
       .daily-strip>.loading-note{grid-column:1 / -1;align-self:center}
-      .debug-panel{margin-top:10px;background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:8px;font-size:12px;color:var(--ww-muted)}
-      .debug-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
-      .debug-row code{color:var(--ww-text)}
+      .debug-panel{margin:10px 18px 18px;background:rgba(255,255,255,.78);border:1px solid var(--ww-line);border-radius:14px;padding:0;font-size:12px;color:var(--ww-muted);max-height:min(420px,52vh);overflow:auto;overscroll-behavior:contain;box-shadow:0 10px 24px rgba(10,30,46,.12)}
+      .debug-panel summary{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;padding:9px 12px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--ww-line);cursor:pointer;font-weight:900;color:var(--ww-text)}
+      .debug-row{display:grid;grid-template-columns:minmax(130px,220px) minmax(0,1fr);gap:12px;padding:7px 12px;border-bottom:1px solid rgba(10,30,46,.07);align-items:start}
+      .debug-row span{font-weight:800;color:var(--ww-muted)}
+      .debug-row code{color:var(--ww-text);white-space:pre-wrap;word-break:break-word;text-align:left;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:11px;line-height:1.35}
       .card-grid.no-forecast .daily-strip{display:none}.card-grid.no-forecast .center{justify-content:center}
       .card-grid.panels-1{grid-template-columns:1fr}
       .card-grid.panels-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}

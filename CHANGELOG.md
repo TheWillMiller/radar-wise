@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1
+
+### Fixed
+
+- Added forecast-data fallbacks for humidity and dew point when a weather provider omits those values from the current weather entity but includes them in forecast payloads.
+- Moved the debug panel out of the squeezed center weather column so it opens as a readable full-width troubleshooting panel.
+- Expanded debug output with resolved humidity/dew point sources, raw weather attributes, and sample forecast keys.
+
 ## 0.8.0
 
 ### Added
