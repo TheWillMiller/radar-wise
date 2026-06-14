@@ -5,9 +5,9 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.7.0`
+**Latest release:** `v0.7.1`
 
-RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
+RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
 ![RadarWise dashboard preview](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/preview.png)
 
@@ -53,6 +53,8 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 - Optional local temperature sensor override
 - Optional humidity sensor fallback
 - Optional dew point sensor fallback
+- Optional UV index badge beside the current condition
+- Optional hourly UV index when exposed by the provider or Open-Meteo
 - Optional AQI tile beside the clock from Home Assistant sensors or Open-Meteo
 - Optional pollen summary tile from Home Assistant sensors or Open-Meteo tree/grass/weed data
 - Optional mold sensor support from Home Assistant sensors
@@ -136,7 +138,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.7.0/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.7.1/radarwise-card.js
 type: module
 ```
 
@@ -196,7 +198,7 @@ grid_options:
   columns: 18
 ```
 
-## Open-Meteo AQI/Pollen Example
+## Open-Meteo AQI/UV/Pollen Example
 
 ```yaml
 type: custom:radarwise-card
@@ -207,7 +209,7 @@ latitude: 33.688
 longitude: -78.886
 ```
 
-Open-Meteo mode requests AQI and pollen for the configured latitude/longitude and does not need an API key. Use `environment_source: sensors` to keep AQI/pollen fully entity-driven inside Home Assistant, or `environment_source: disabled` to hide the environment cluster.
+Open-Meteo mode requests AQI, UV index, and pollen for the configured latitude/longitude and does not need an API key. Use `environment_source: sensors` to keep AQI, UV index, and pollen fully entity-driven inside Home Assistant, or `environment_source: disabled` to hide the environment cluster.
 
 ## Theme Support
 
@@ -233,6 +235,7 @@ RadarWise includes a Home Assistant visual editor. When adding the card from the
 - Choose an optional local temperature sensor when the weather entity is not local enough
 - Choose an optional humidity sensor when the weather entity does not expose humidity
 - Choose an optional dew point sensor when the weather entity does not expose dew point
+- Choose an optional UV index sensor when Home Assistant has one
 - Choose optional AQI and pollen source: Home Assistant sensors, Open-Meteo, or disabled
 - Choose United States, Canada, United Kingdom, or global/other setup
 - Choose automatic radar, NOAA radar, RainViewer radar, or no radar
@@ -276,12 +279,13 @@ Radar location and map controls:
 | `humidity_entity` | No |  | Optional humidity sensor/helper entity. Useful when the weather entity has no humidity attribute. |
 | `dew_point_entity` | No |  | Optional dew point sensor/helper entity. RadarWise also auto-reads common dew point attributes from the weather entity when available. |
 | `air_quality_entity` | No |  | Optional AQI/air-quality sensor or helper entity. Displays beside the clock/date when configured. |
+| `uv_index_entity` | No |  | Optional UV index sensor/helper entity. Displays beside the current condition. |
 | `pollen_entity` | No |  | Optional general pollen sensor/helper entity. |
 | `tree_pollen_entity` | No |  | Optional tree pollen sensor/helper entity used in the pollen summary. |
 | `grass_pollen_entity` | No |  | Optional grass pollen sensor/helper entity used in the pollen summary. |
 | `weed_pollen_entity` | No |  | Optional weed pollen sensor/helper entity used in the pollen summary. |
 | `mold_pollen_entity` | No |  | Optional mold sensor/helper entity used in the pollen summary. |
-| `environment_source` | No | `sensors` | AQI/pollen source: `sensors`, `open_meteo`, or `disabled`. Open-Meteo uses the configured radar latitude/longitude and does not need an API key. |
+| `environment_source` | No | `sensors` | AQI/pollen/UV source: `sensors`, `open_meteo`, or `disabled`. Open-Meteo uses the configured radar latitude/longitude and does not need an API key. |
 | `title` | No | `Local Weather` | Card title. |
 | `country` | No | `us` | Region hint: `us`, `ca`, `uk`, or `global`. |
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `rainviewer`, or `none`. |
@@ -379,10 +383,16 @@ The red radar dot appears when the US NWS warning overlay finds an active alert 
 ### AQI or pollen does not show
 
 1. In the visual editor, open **Environment sensors**.
-2. Choose **Open-Meteo, no API key** if you want RadarWise to fetch AQI and pollen by latitude/longitude.
+2. Choose **Open-Meteo, no API key** if you want RadarWise to fetch AQI, UV index, and pollen by latitude/longitude.
 3. Or keep **Home Assistant sensors** and choose `air_quality_entity`, `pollen_entity`, `tree_pollen_entity`, `grass_pollen_entity`, `weed_pollen_entity`, or `mold_pollen_entity`.
 4. Confirm `show_environment` is enabled.
-5. Open-Meteo provides AQI and pollen, but not mold. Mold requires a Home Assistant sensor.
+5. Open-Meteo provides AQI, UV index, and pollen, but not mold. Mold requires a Home Assistant sensor.
+
+### UV index does not show
+
+1. Choose **Open-Meteo, no API key** under **Environment sensors**, or select a UV index sensor.
+2. Confirm the radar latitude/longitude is set if using Open-Meteo.
+3. Hourly UV appears only for hourly forecast rows, not daily or twice-daily rows.
 
 ### What do the blue bars show?
 
@@ -396,7 +406,7 @@ RadarWise intentionally uses Home Assistant weather entities instead of direct a
 
 RadarWise does not include telemetry, tracking pixels, external analytics, or phone-home behavior.
 
-When radar is enabled, the browser viewing the dashboard loads map/radar tiles from the selected provider. If `environment_source: open_meteo` is enabled, the browser sends the configured latitude and longitude to Open-Meteo's public air quality API to request AQI and pollen data. If `environment_source: sensors` is used, AQI and pollen come only from your Home Assistant entities. The card does not send weather entity data to a RadarWise server.
+When radar is enabled, the browser viewing the dashboard loads map/radar tiles from the selected provider. If `environment_source: open_meteo` is enabled, the browser sends the configured latitude and longitude to Open-Meteo's public air quality and forecast APIs to request AQI, UV index, and pollen data. If `environment_source: sensors` is used, AQI, UV index, and pollen come only from your Home Assistant entities or selected weather provider data. The card does not send weather entity data to a RadarWise server.
 
 ## Safety
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1
+
+### Added
+
+- Added optional UV index support beside the current condition.
+- Added hourly UV values when hourly forecast data or Open-Meteo provides them.
+- Added a visual editor picker for a Home Assistant UV index sensor.
+- Added Open-Meteo UV loading through the no-key Forecast API when Open-Meteo is selected.
+
+### Fixed
+
+- When Open-Meteo reports all pollen categories as zero, RadarWise now shows general Pollen instead of labeling Tree Pollen as the dominant source.
+
 ## 0.7.0
 
 ### Added
