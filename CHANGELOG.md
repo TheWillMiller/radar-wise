@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.3
+
+### Fixed
+
+- Added center-panel responsive sizing so Auto and Wide panel layouts no longer use desktop forecast/stat text sizes when the weather column is narrow.
+- Prevented stat values such as wind, sunrise, sunset, humidity, and dew point from breaking into overlapping vertical text.
+- Allowed forecast cards to keep a readable minimum width and scroll horizontally when the center panel is too narrow for the selected forecast count.
+
 ## 0.8.2
 
 ### Added

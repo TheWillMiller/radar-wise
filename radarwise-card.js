@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.2";
+const CARD_VERSION = "0.8.3";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -2847,7 +2847,7 @@ class RadarWiseCard extends HTMLElement {
       .hour-bar-wrap{height:8px;border-radius:999px;background:rgba(18,59,83,0.10);position:relative;overflow:hidden}
       .hour-bar-fill{position:absolute;top:0;left:0;height:100%;border-radius:999px;background:linear-gradient(90deg,#58b7c7,var(--ww-wave))}
       .hour-precip{font-size:12px;font-weight:900;color:var(--ww-muted);white-space:nowrap;text-align:right;min-width:0}
-      .center{min-width:0;display:flex;flex-direction:column;padding:18px 24px;border-right:1px solid rgba(255,255,255,0.22);overflow:hidden}
+      .center{min-width:0;display:flex;flex-direction:column;padding:18px 24px;border-right:1px solid rgba(255,255,255,0.22);overflow:hidden;container-type:inline-size;container-name:ww-center}
       .current-row{display:flex;align-items:center;gap:18px;margin-bottom:12px;min-width:0;min-height:86px;overflow:visible}
       .current-icon{width:72px;height:72px;flex-shrink:0;display:grid;place-items:center}
       .cond-block{flex:1;min-width:0}
@@ -2880,7 +2880,7 @@ class RadarWiseCard extends HTMLElement {
       .stat-ico{width:27px;height:27px;flex:0 0 27px;color:var(--ww-wave)}
       .stat-ico svg{width:27px;height:27px}
       .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-      .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:normal;overflow-wrap:anywhere;line-height:1.08}
+      .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
       .ww-icon{overflow:visible;transform-box:fill-box}
       :host([animations]) .current-icon .ww-icon{filter:drop-shadow(0 8px 14px rgba(42,122,148,.14))}
       :host([animations]) .ww-sun-rays{transform-origin:20px 20px;animation:ww-sun-spin 28s linear infinite}
@@ -2981,6 +2981,8 @@ class RadarWiseCard extends HTMLElement {
       .card-grid.content-essentials .center{border-right:0}
       .card-grid.content-essentials .current-row{margin-bottom:10px}
       @container(max-width:1500px){.card-grid{height:var(--radarwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px;margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:12px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
+      @container ww-center (max-width:680px){.current-row{gap:14px;min-height:74px}.current-icon{width:58px;height:58px}.cond-name{font-size:clamp(24px,8cqw,32px)}.updated-note{font-size:12px;margin-top:5px}.temp-now{font-size:clamp(42px,12cqw,58px)}.temp-hilo{font-size:16px;margin-top:5px}.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(92px,1fr));gap:8px;min-height:158px;max-height:196px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex:none}.daily-strip::-webkit-scrollbar{display:none}.fc-slot{padding:8px 6px}.fc-day{font-size:18px}.fc-period{font-size:11px;min-height:12px}.fc-icon{width:48px;height:48px;margin:2px 0}.fc-icon svg{width:44px;height:44px}.fc-temp{font-size:34px}.fc-range,.fc-precip{font-size:10px;min-height:11px}.stats-row{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}.stat{min-height:52px;padding:8px 9px;gap:8px}.stat-ico,.stat-ico svg{width:22px;height:22px}.stat-ico{flex-basis:22px}.stat-lbl{font-size:10px;margin-bottom:2px}.stat-val{font-size:clamp(13px,4.8cqw,16px)}}
+      @container ww-center (max-width:480px){.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(86px,1fr));min-height:148px}.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-val{font-size:14px}.current-row{align-items:flex-start;flex-wrap:wrap}.temp-block{text-align:left}}
       @container(max-width:980px){.card-grid:not(.layout-wide_panel){height:var(--radarwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
       .card-grid.layout-wide_panel{height:var(--radarwise-card-height,clamp(390px,22cqw,500px))}
       .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{display:contents}.card-grid.layout-stacked .clock-panel,.card-grid.layout-compact .clock-panel{order:1;padding:18px 22px 0;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid.layout-stacked .left>.section-title,.card-grid.layout-compact .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 22px;margin-top:4px}.card-grid.layout-stacked .hourly-left,.card-grid.layout-compact .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 22px 16px}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:var(--ww-ord-radar,30);border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
