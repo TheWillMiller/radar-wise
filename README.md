@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.3`
+**Latest release:** `v0.8.4`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -59,6 +59,7 @@ If you are testing from Australia, New Zealand, Europe, or any other region, ple
 - Optional pollen summary tile from Home Assistant sensors or Open-Meteo tree/grass/weed data
 - Optional mold sensor support from Home Assistant sensors
 - Optional localized forecast summary ticker
+- Optional custom sensor detail blocks below the weather stats row
 - Hourly forecast strip
 - Daily or twice-daily forecast cards
 - Daily forecast high/low range when the provider exposes a low temperature
@@ -141,7 +142,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.3/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.4/radarwise-card.js
 type: module
 ```
 
@@ -213,6 +214,28 @@ longitude: -78.886
 ```
 
 Open-Meteo mode requests AQI, UV index, and pollen for the configured latitude/longitude and does not need an API key. Use `environment_source: sensors` to keep AQI, UV index, and pollen fully entity-driven inside Home Assistant, or `environment_source: disabled` to hide the environment cluster.
+
+## Custom Sensor Detail Blocks
+
+RadarWise can show optional Home Assistant sensor blocks below the Humidity, Dew Point, Wind, Sunrise, and Sunset row. The visual editor includes three slots; YAML can define up to six.
+
+```yaml
+type: custom:radarwise-card
+entity: weather.home
+custom_sensors:
+  - entity: sensor.pool_temperature
+    name: Pool Temp
+    icon: mdi:pool-thermometer
+  - entity: sensor.greenhouse_temperature
+    name: Greenhouse
+    icon: mdi:greenhouse
+  - entity: sensor.rain_today
+    name: Rain Today
+    icon: mdi:weather-pouring
+    unit: in
+```
+
+Each item supports `entity`, `name`, `icon`, and `unit`. If `name`, `icon`, or `unit` are omitted, RadarWise uses the entity's friendly name, icon, and unit where available.
 
 ## Theme Support
 
@@ -304,6 +327,8 @@ Radar location and map controls:
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_environment` | No | `true` | Show or hide the optional AQI/pollen cluster beside the clock/date. |
+| `show_custom_sensors` | No | `true` | Show or hide optional custom sensor blocks below the weather detail stat row. |
+| `custom_sensors` | No | `[]` | Optional sensor detail blocks. Each item supports `entity`, `name`, `icon`, and `unit`. The visual editor exposes three slots; YAML supports up to six. |
 | `show_timeline` | No | `true` | Show or hide the left hourly/forecast list. |
 | `show_forecast` | No | `true` | Show or hide the daily/twice-daily forecast card strip. |
 | `timeline_autoscroll` | No | `false` | Slowly auto-scroll long forecast lists. Manual scrolling pauses it briefly. |

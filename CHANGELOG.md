@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.4
+
+### Added
+
+- Added optional custom sensor detail blocks below the Humidity, Dew Point, Wind, Sunrise, and Sunset row.
+- Added visual editor slots for up to three custom Home Assistant sensors, with optional label, MDI icon, and unit override.
+- Added YAML support for up to six `custom_sensors` entries for advanced dashboards.
+
 ## 0.8.3
 
 ### Fixed
