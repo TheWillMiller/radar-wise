@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.5
+
+### Added
+
+- Added Dutch (`nl`) translations for card labels, forecast summary text, radar controls, alert text, environment labels, and condition names.
+
 ## 0.8.4
 
 ### Added

@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.4";
+const CARD_VERSION = "0.8.5";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -98,7 +98,8 @@ const RADARWISE_LANGUAGES = {
   fr: "Français",
   es: "Español",
   de: "Deutsch",
-  pt: "Português"
+  pt: "Português",
+  nl: "Nederlands"
 };
 
 const RADARWISE_TEXT = {
@@ -500,6 +501,86 @@ const RADARWISE_TEXT = {
       windy: "ventoso",
       "windy variant": "ventoso com nuvens",
       unavailable: "indisponível"
+    }
+  },
+  nl: {
+    am: "AM",
+    pm: "PM",
+    currentWeather: "Huidig weer",
+    selectWeatherEntity: "Selecteer een weerentiteit",
+    connectWeather: "Koppel weer in Home Assistant",
+    openEditor: "Open de kaarteditor om de instelling te voltooien",
+    waitingLive: "Wachten op live weergegevens",
+    updated: "Bijgewerkt",
+    forecast: "Verwachting",
+    daily: "Dagelijks",
+    hourly: "Per uur",
+    dayPeriod: "Dag",
+    nightPeriod: "Nacht",
+    humidity: "Luchtvochtigheid",
+    dewPoint: "Dauwpunt",
+    airQuality: "Luchtkwaliteit",
+    uvIndex: "UV-index",
+    pollen: "Pollen",
+    treePollen: "Boompollen",
+    grassPollen: "Graspollen",
+    weedPollen: "Onkruidpollen",
+    moldPollen: "Schimmel",
+    good: "Goed",
+    low: "Laag",
+    moderate: "Matig",
+    high: "Hoog",
+    veryHigh: "Zeer hoog",
+    unhealthySensitive: "Ongezond voor gevoelige groepen",
+    unhealthy: "Ongezond",
+    veryUnhealthy: "Zeer ongezond",
+    hazardous: "Gevaarlijk",
+    extreme: "Extreem",
+    wind: "Wind",
+    sunrise: "Zonsopkomst",
+    sunset: "Zonsondergang",
+    waitingForecast: "Wachten op verwachtingsgegevens van Home Assistant.",
+    relativeTemp: "Relatieve temperatuur binnen de zichtbare verwachtingsregels",
+    radarLoading: "Radar laden...",
+    radarUnavailable: "Radar niet beschikbaar",
+    radarWaiting: "Radar wacht op dashboardindeling",
+    rainviewerUnavailable: "RainViewer-radar niet beschikbaar",
+    currentRadar: "huidige radar",
+    radarLoop: "radarlus",
+    futureRadar: "toekomstige radar",
+    previousRadarFrame: "Vorig radarbeeld",
+    nextRadarFrame: "Volgend radarbeeld",
+    pauseRadarLoop: "Radarlus pauzeren",
+    playRadarLoop: "Radarlus afspelen",
+    weatherAlert: "Weerwaarschuwing",
+    activeWeatherAlert: "actieve weerwaarschuwing",
+    nwsAlertTap: "NWS-waarschuwing - tik voor details",
+    nwsAlertsTap: "NWS-waarschuwingen - tik voor details",
+    severity: "Ernst",
+    unknown: "Onbekend",
+    forecastIntro: "Verwachting",
+    currently: "momenteel",
+    withHigh: "met een maximum rond {temp}",
+    chancePrecip: "en {chance}% kans op neerslag",
+    tonight: "Vanavond wordt het {condition}",
+    withLow: "met een minimum rond {temp}",
+    tomorrow: "Morgen wordt het {condition}",
+    nearTemp: "rond {temp}",
+    conditions: {
+      sunny: "zonnig",
+      "clear night": "helder",
+      "partly cloudy": "gedeeltelijk bewolkt",
+      cloudy: "bewolkt",
+      rainy: "regenachtig",
+      pouring: "zware regen",
+      lightning: "kans op onweer",
+      "lightning rainy": "kans op onweer",
+      snowy: "sneeuw",
+      "snowy rainy": "winterse neerslag",
+      fog: "mistig",
+      windy: "winderig",
+      "windy variant": "winderig met bewolking",
+      unavailable: "niet beschikbaar"
     }
   }
 };
