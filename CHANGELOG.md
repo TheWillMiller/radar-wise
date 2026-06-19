@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.6
+
+### Added
+
+- Added Australia as a first-class region option.
+- Added an Australia BOM radar provider that selects the nearest built-in Bureau of Meteorology radar station from the configured latitude/longitude.
+- Added an Australia YAML example and updated region/provider documentation.
+
+### Changed
+
+- `radar_provider: auto` now resolves to BOM radar when `country: au`.
+- BOM radar uses Bureau of Meteorology radar imagery directly instead of relying on the generic RainViewer fallback.
+- BOM radar skips the external basemap layer because BOM radar images include their own map background and attribution.
+
 ## 0.8.5
 
 ### Added

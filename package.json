@@ -1,6 +1,6 @@
 {
   "name": "radarwise-card",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Radar-forward weather dashboard custom card for Home Assistant with forecasts and alerts.",
   "type": "module",
   "files": [
@@ -24,6 +24,8 @@
     "forecast",
     "radar",
     "noaa",
+    "bom",
+    "australia",
     "rainviewer"
   ],
   "license": "MIT",

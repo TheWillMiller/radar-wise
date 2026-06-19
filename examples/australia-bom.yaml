@@ -1,0 +1,11 @@
+type: custom:radarwise-card
+entity: weather.home
+title: Local Weather
+country: au
+radar_provider: auto
+units: metric
+latitude: -34.9285
+longitude: 138.6007
+layout: auto
+forecast_count: 5
+hourly_count: 5
