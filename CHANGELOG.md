@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.8
+
+### Fixed
+
+- Fixed Australia BOM fallback radar showing a readable image but not animating when native BOM WMTS tiles are unavailable.
+- BOM fallback radar now animates through Bureau of Meteorology legacy loop frames and keeps RadarWise playback controls active.
+- Added a final static BOM image fallback so Australian radar still shows something useful if frame loading is blocked or temporarily stale.
+
 ## 0.8.7
 
 ### Changed

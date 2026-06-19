@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.7";
+const CARD_VERSION = "0.8.8";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -111,6 +111,7 @@ const BOM_WORLD_EXTENT = BOM_HALF_EXTENT * 2;
 const BOM_MAX_NATIVE_ZOOM = 8;
 const BOM_MAX_DISPLAY_ZOOM = 10;
 const BOM_AUSTRALIA_BOUNDS = [[-45.5, 108], [-8, 158]];
+const BOM_LEGACY_FRAME_COUNT = 7;
 const BOM_TILE_MATRIX_SETS = {
   GoogleMapsCompatible_BoM: [
     { z: 0, tlx: 11584952, tly: 34168990.685578, w: 1, h: 1 },
@@ -2587,7 +2588,7 @@ class RadarWiseCard extends HTMLElement {
     window.setTimeout(() => this._renderBomGifFallback(), 0);
   }
 
-  _renderBomGifFallback() {
+  async _renderBomGifFallback() {
     const holder = this.shadowRoot?.getElementById("rmap");
     const label = this.shadowRoot?.getElementById("radar-lbl");
     const station = this._bomStation();
@@ -2598,25 +2599,109 @@ class RadarWiseCard extends HTMLElement {
     this._teardownRadar();
     this._bomFallbackStarted = true;
     const controls = this.shadowRoot?.querySelector(".radar-controls");
-    if (controls) controls.setAttribute("hidden", "");
+    if (controls) controls.removeAttribute("hidden");
     holder.innerHTML = `
       <div class="bom-fallback-radar">
         <img class="bom-fallback-image" alt="${_wwEscape(station.name)} BOM radar loop">
       </div>
     `;
     const img = holder.querySelector(".bom-fallback-image");
-    const updateImage = () => {
-      const cacheKey = Math.floor(Date.now() / (5 * 60 * 1000));
-      img.src = `${BOM_GIF_HOST}/radar/${station.id}.gif?_=${cacheKey}`;
-    };
+    const frames = await this._bomLegacyFrames(station);
+    const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
+    if (!img || !selectedFrames.length) {
+      if (label) label.textContent = `BOM ${this._t("radarUnavailable")}`;
+      return;
+    }
+    const staticFallback = `${BOM_GIF_HOST}/radar/${station.id}.gif?_=${Math.floor(Date.now() / (5 * 60 * 1000))}`;
+    let lastRequestedSrc = "";
+    let lastGoodSrc = "";
     img.onload = () => {
-      if (label) label.textContent = `${station.name} BOM ${this._t("radarLoop")}`;
+      if (img.src === lastRequestedSrc) lastGoodSrc = img.src;
     };
     img.onerror = () => {
-      if (label) label.textContent = `BOM ${this._t("radarUnavailable")}`;
+      if (lastGoodSrc && img.src !== lastGoodSrc) {
+        img.src = lastGoodSrc;
+        return;
+      }
+      if (img.src !== staticFallback) img.src = staticFallback;
+      if (label) label.textContent = `${station.name} BOM ${this._t("currentRadar")}`;
     };
-    updateImage();
-    this._radarTimer = window.setInterval(updateImage, 5 * 60 * 1000);
+    selectedFrames.forEach((frame) => {
+      const preload = new Image();
+      preload.src = frame.url;
+    });
+    this._radarLabelText = selectedFrames.length === 1 ? `BOM ${this._t("currentRadar")}` : `BOM ${this._t("radarLoop")}`;
+    this._radarLayers = selectedFrames.map((frame) => ({
+      time: frame.time,
+      layer: {
+        remove() {},
+        addTo() {},
+        setOpacity: (opacity) => {
+          if (opacity <= 0) return;
+          lastRequestedSrc = frame.url;
+          if (img.src !== frame.url) img.src = frame.url;
+        }
+      }
+    }));
+    this._radarIndex = Math.max(0, this._radarLayers.length - 1);
+    this._radarPlaying = this._radarLayers.length > 1;
+    this._showRadarFrame(this._radarIndex);
+    this._animateRadar(this._radarLabelText);
+    window.clearTimeout(this._radarReloadTimer);
+    this._radarReloadTimer = window.setTimeout(() => this._renderBomGifFallback(), 5 * 60 * 1000);
+  }
+
+  async _bomLegacyFrames(station) {
+    const parsed = await this._fetchBomLegacyFrameList(station);
+    if (parsed.length) return parsed;
+    return this._generatedBomLegacyFrames(station);
+  }
+
+  async _fetchBomLegacyFrameList(station) {
+    try {
+      const response = await fetch(`${BOM_GIF_HOST}/products/${station.id}.loop.shtml`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`BOM loop page ${response.status}`);
+      const html = await response.text();
+      return Array.from(html.matchAll(/theImageNames\[\d+\]\s*=\s*"([^"]+)"/g))
+        .map((match) => this._bomLegacyFrameFromPath(match[1]))
+        .filter(Boolean);
+    } catch (err) {
+      return [];
+    }
+  }
+
+  _bomLegacyFrameFromPath(path) {
+    const match = String(path || "").match(/\/radar\/([^/]+?\.T\.(\d{12})\.png)/);
+    if (!match) return null;
+    const stamp = match[2];
+    const time = new Date(Date.UTC(
+      Number(stamp.slice(0, 4)),
+      Number(stamp.slice(4, 6)) - 1,
+      Number(stamp.slice(6, 8)),
+      Number(stamp.slice(8, 10)),
+      Number(stamp.slice(10, 12))
+    ));
+    if (Number.isNaN(time.getTime())) return null;
+    return { time, url: `${BOM_GIF_HOST}/radar/${match[1]}` };
+  }
+
+  _generatedBomLegacyFrames(station) {
+    const stepMs = 5 * 60 * 1000;
+    const latest = Math.floor((Date.now() - 60 * 1000) / stepMs) * stepMs - 60 * 1000;
+    return Array.from({ length: BOM_LEGACY_FRAME_COUNT }, (_, index) => {
+      const time = new Date(latest - (BOM_LEGACY_FRAME_COUNT - 1 - index) * stepMs);
+      const stamp = this._bomLegacyFrameStamp(time);
+      return { time, url: `${BOM_GIF_HOST}/radar/${station.id}.T.${stamp}.png` };
+    });
+  }
+
+  _bomLegacyFrameStamp(time) {
+    const year = time.getUTCFullYear();
+    const month = String(time.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(time.getUTCDate()).padStart(2, "0");
+    const hour = String(time.getUTCHours()).padStart(2, "0");
+    const minute = String(time.getUTCMinutes()).padStart(2, "0");
+    return `${year}${month}${day}${hour}${minute}`;
   }
 
   _bomTileUrl(coords, time) {
