@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.6`
+**Latest release:** `v0.8.7`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -31,7 +31,7 @@ RadarWise gets weather data from an existing Home Assistant `weather` entity, so
 
 RadarWise does not ask for, store, or call private weather API keys from dashboard YAML. Open-Meteo can provide no-key AQI, UV index, and pollen environment data, but radar imagery still comes from the selected radar provider.
 
-Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses public Bureau of Meteorology radar images and automatically chooses the nearest built-in BOM radar station from the configured latitude/longitude. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
+Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses native Bureau of Meteorology WMTS radar tiles and BOM basemap tiles, with no API key required. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
 
 ### Testing Outside the US, Canada, Australia, and UK
 
@@ -144,7 +144,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.6/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.7/radarwise-card.js
 type: module
 ```
 
@@ -358,9 +358,9 @@ Radar location and map controls:
 | `show_radar` | No | `true` | Show or hide the radar panel. |
 | `show_map_controls` | No | `true` | Show or hide map zoom controls. |
 | `radar_controls` | No | `true` | Show or hide radar playback controls. |
-| `radar_timeline` | No | `loop` | `loop`, `latest`, or `future`. Future frames are used only when the selected radar provider exposes them. |
+| `radar_timeline` | No | `loop` | `loop`, `latest`, or `future`. Future frames are used only when the selected radar provider exposes them. BOM uses observed recent frames for `loop` and `latest`. |
 | `radar_style` | No | `standard` | Radar overlay style: `standard`, `vivid`, or `soft`. |
-| `radar_basemap` | No | `light` | Map style: `light`, `dark`, or `osm`. The `osm` street-map style uses CARTO-hosted tiles with OpenStreetMap attribution rather than the volunteer `tile.openstreetmap.org` endpoint. |
+| `radar_basemap` | No | `light` | Map style: `light`, `dark`, or `osm`. The `osm` street-map style uses CARTO-hosted tiles with OpenStreetMap attribution rather than the volunteer `tile.openstreetmap.org` endpoint. BOM radar uses BOM-native light/dark map tiles. |
 | `radar_speed` | No | `700` | Radar loop speed in milliseconds, 300-3000. |
 | `radar_zoom` | No | `7` | Initial radar zoom. |
 | `show_warning_overlay` | No | `true` | Show active US NWS alerts on the radar map when available. |
@@ -413,7 +413,8 @@ Available for custom Home Assistant dashboards, Lovelace cards, and kiosk interf
 1. Check the selected radar provider.
 2. Use `radar_provider: noaa` only for US radar.
 3. Use `radar_provider: envcanada` for Canada, `radar_provider: bom` for Australia, or `radar_provider: rainviewer` for UK and global setups.
-4. Confirm the dashboard browser can reach external map/radar tile services.
+4. For Australia, confirm `latitude` and `longitude` are in Australia when using `radar_provider: bom`.
+5. Confirm the dashboard browser can reach external map/radar tile services.
 
 ### What is the red dot on the radar?
 

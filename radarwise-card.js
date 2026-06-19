@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.6";
+const CARD_VERSION = "0.8.7";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -94,7 +94,37 @@ const RADARWISE_FONT_STACKS = {
   mono: '"SFMono-Regular","Cascadia Mono",Consolas,"Liberation Mono",monospace'
 };
 
-const BOM_RADAR_HOST = "https://reg.bom.gov.au";
+const BOM_WMTS_BASE = "https://api.bom.gov.au/apikey/v1/mapping/timeseries/wmts";
+const BOM_GIF_HOST = "https://reg.bom.gov.au";
+const BOM_WMTS_LAYER = {
+  id: "atm_surf_air_precip_reflectivity_dbz",
+  matrixSet: "GoogleMapsCompatible_BoM",
+  stepMinutes: 5,
+  lagMinutes: 10
+};
+const BOM_BASEMAPS = {
+  default: "https://api.bom.gov.au/apikey/v1/mapping/basemaps/basemap_default/MapServer/tile/{z}/{y}/{x}?blankTile=false",
+  dark: "https://api.bom.gov.au/apikey/v1/mapping/basemaps/basemap_dark/MapServer/tile/{z}/{y}/{x}?blankTile=false"
+};
+const BOM_HALF_EXTENT = 20037508.342789244;
+const BOM_WORLD_EXTENT = BOM_HALF_EXTENT * 2;
+const BOM_MAX_NATIVE_ZOOM = 8;
+const BOM_MAX_DISPLAY_ZOOM = 10;
+const BOM_AUSTRALIA_BOUNDS = [[-45.5, 108], [-8, 158]];
+const BOM_TILE_MATRIX_SETS = {
+  GoogleMapsCompatible_BoM: [
+    { z: 0, tlx: 11584952, tly: 34168990.685578, w: 1, h: 1 },
+    { z: 1, tlx: 11584952, tly: 14131482.342789, w: 1, h: 1 },
+    { z: 2, tlx: 11584952, tly: 4112728.171395, w: 1, h: 1 },
+    { z: 3, tlx: 11584952, tly: 4112728.171395, w: 2, h: 2 },
+    { z: 4, tlx: 11584952, tly: 1608039.628546, w: 3, h: 3 },
+    { z: 5, tlx: 11584952, tly: 355695.357122, w: 6, h: 5 },
+    { z: 6, tlx: 11584952, tly: -270476.778591, w: 11, h: 9 },
+    { z: 7, tlx: 11584952, tly: -583562.846447, w: 22, h: 17 },
+    { z: 8, tlx: 11584952, tly: -740105.880375, w: 43, h: 33 }
+  ]
+};
+const TRANSPARENT_PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const BOM_RADARS = [
   { id: "IDR643", name: "Adelaide (Buckland Park)", lat: -34.617, lon: 138.469 },
   { id: "IDR463", name: "Adelaide (Sellicks Hill)", lat: -35.33, lon: 138.50 },
@@ -829,6 +859,8 @@ class RadarWiseCard extends HTMLElement {
     this._radarLabelText = "radar loop";
     this._radarProviderRendered = "";
     this._radarResizeObserver = null;
+    this._bomTileErrorCount = 0;
+    this._bomFallbackStarted = false;
     this._cardResizeObserver = null;
     this._timelineScrollRaf = null;
     this._timelineScrollDir = 1;
@@ -1572,7 +1604,7 @@ class RadarWiseCard extends HTMLElement {
             ${content.right ? `
               <section class="right">
                 <div id="rmap"></div>
-                ${this._config.radar_controls === false || provider === "bom" ? "" : `
+                ${this._config.radar_controls === false ? "" : `
                   <div class="radar-controls" aria-label="Radar playback controls">
                     <button type="button" data-radar-action="prev" title="${_wwEscape(text.previousRadarFrame)}" aria-label="${_wwEscape(text.previousRadarFrame)}">&lt;</button>
                     <button type="button" data-radar-action="play" title="${_wwEscape(text.pauseRadarLoop)}" aria-label="${_wwEscape(text.pauseRadarLoop)}">||</button>
@@ -2182,13 +2214,19 @@ class RadarWiseCard extends HTMLElement {
       await this._loadLeaflet();
       if (!window.L || !holder.isConnected) return;
       const { lat, lon } = this._latLon();
+      const isBom = provider === "bom";
       this._radarMap = window.L.map(holder, {
         center: [lat, lon],
-        zoom: Number(this._config.radar_zoom) || 7,
+        zoom: isBom
+          ? Math.max(3, Math.min(BOM_MAX_DISPLAY_ZOOM, Number(this._config.radar_zoom) || 6))
+          : Number(this._config.radar_zoom) || 7,
+        minZoom: isBom ? 3 : undefined,
+        maxZoom: isBom ? BOM_MAX_DISPLAY_ZOOM : undefined,
         zoomControl: this._config.show_map_controls !== false,
         attributionControl: true
       });
-      if (provider !== "bom") this._addBasemapLayer();
+      if (isBom) this._addBomBasemapLayer();
+      else this._addBasemapLayer();
       window.L.circleMarker([lat, lon], {
         radius: 5,
         color: "#1a3a50",
@@ -2225,6 +2263,8 @@ class RadarWiseCard extends HTMLElement {
     this._warningLayer = null;
     this._warningPopupMarker = null;
     this._radarIndex = 0;
+    this._bomTileErrorCount = 0;
+    this._bomFallbackStarted = false;
     if (this._radarMap) {
       this._radarMap.remove();
       this._radarMap = null;
@@ -2468,32 +2508,143 @@ class RadarWiseCard extends HTMLElement {
 
   async _loadBomLoop() {
     const label = this.shadowRoot?.getElementById("radar-lbl");
+    const frames = this._bomFrames();
+    const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
+    this._bomTileErrorCount = 0;
+    this._bomFallbackStarted = false;
+    this._radarLabelText = selectedFrames.length === 1 ? `BOM ${this._t("currentRadar")}` : `BOM ${this._t("radarLoop")}`;
+    this._replaceRadarLayers(selectedFrames.map((frameTime, index, list) => ({
+      time: frameTime,
+      layer: this._createBomTileLayer(this._bomTimestamp(frameTime), {
+        opacity: index === list.length - 1 ? this._bomOpacity() : 0,
+        zIndex: 25,
+        noWrap: true,
+        bounds: BOM_AUSTRALIA_BOUNDS,
+        maxNativeZoom: BOM_MAX_NATIVE_ZOOM,
+        maxZoom: BOM_MAX_DISPLAY_ZOOM,
+        attribution: "Radar &copy; Bureau of Meteorology"
+      })
+    })));
+    if (label) label.textContent = `${this._shortTime(selectedFrames.at(-1))} ${this._radarLabelText}`;
+    this._animateRadar(this._radarLabelText);
+  }
+
+  _bomFrames() {
+    const stepMs = BOM_WMTS_LAYER.stepMinutes * 60 * 1000;
+    const lagMs = BOM_WMTS_LAYER.lagMinutes * 60 * 1000;
+    const roundedNow = Math.floor((Date.now() - lagMs) / stepMs) * stepMs;
+    return Array.from({ length: 12 }, (_, i) => new Date(roundedNow - (11 - i) * stepMs));
+  }
+
+  _bomTimestamp(frameTime) {
+    return frameTime.toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
+
+  _createBomTileLayer(time, options = {}) {
+    const card = this;
+    const BomTileLayer = window.L.TileLayer.extend({
+      getTileUrl(coords) {
+        return card._bomTileUrl(coords, time);
+      },
+      createTile(coords, done) {
+        const tile = document.createElement("img");
+        tile.alt = "";
+        const offset = card._bomTileOffset(coords.z);
+        if (offset) {
+          tile.style.marginLeft = `${offset.xShiftPx}px`;
+          tile.style.marginTop = `${offset.yShiftPx}px`;
+        }
+        const url = this.getTileUrl(coords);
+        if (!url) {
+          tile.src = TRANSPARENT_PIXEL;
+          window.setTimeout(() => done(null, tile), 0);
+          return tile;
+        }
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          done(null, tile);
+        };
+        tile.onload = finish;
+        tile.onerror = () => {
+          tile.onerror = null;
+          card._bomTileErrorCount += 1;
+          if (card._bomTileErrorCount >= 3) card._scheduleBomGifFallback();
+          tile.src = TRANSPARENT_PIXEL;
+          finish();
+        };
+        tile.src = url;
+        return tile;
+      }
+    });
+    return new BomTileLayer("", options);
+  }
+
+  _scheduleBomGifFallback() {
+    if (this._bomFallbackStarted || this._resolvedRadarProvider() !== "bom") return;
+    this._bomFallbackStarted = true;
+    window.setTimeout(() => this._renderBomGifFallback(), 0);
+  }
+
+  _renderBomGifFallback() {
+    const holder = this.shadowRoot?.getElementById("rmap");
+    const label = this.shadowRoot?.getElementById("radar-lbl");
     const station = this._bomStation();
-    if (!station) {
+    if (!holder || !station) {
       if (label) label.textContent = this._t("radarUnavailable");
       return;
     }
-    const cacheKey = Math.floor(Date.now() / (5 * 60 * 1000));
-    const url = `${BOM_RADAR_HOST}/radar/${station.id}.gif?_=${cacheKey}`;
-    this._radarLabelText = `BOM ${this._t("radarLoop")}`;
-    const layer = window.L.imageOverlay(url, this._bomBounds(station), {
-      opacity: this._bomOpacity(),
-      zIndex: 25,
-      interactive: false,
-      attribution: "Radar &copy; Bureau of Meteorology"
-    });
-    layer.once?.("error", async () => {
+    this._teardownRadar();
+    this._bomFallbackStarted = true;
+    const controls = this.shadowRoot?.querySelector(".radar-controls");
+    if (controls) controls.setAttribute("hidden", "");
+    holder.innerHTML = `
+      <div class="bom-fallback-radar">
+        <img class="bom-fallback-image" alt="${_wwEscape(station.name)} BOM radar loop">
+      </div>
+    `;
+    const img = holder.querySelector(".bom-fallback-image");
+    const updateImage = () => {
+      const cacheKey = Math.floor(Date.now() / (5 * 60 * 1000));
+      img.src = `${BOM_GIF_HOST}/radar/${station.id}.gif?_=${cacheKey}`;
+    };
+    img.onload = () => {
+      if (label) label.textContent = `${station.name} BOM ${this._t("radarLoop")}`;
+    };
+    img.onerror = () => {
       if (label) label.textContent = `BOM ${this._t("radarUnavailable")}`;
-      if (!this._radarMap) return;
-      await this._loadRainViewerLoop();
-    });
-    this._replaceRadarLayers([{
-      time: new Date(),
-      layer
-    }]);
-    if (label) label.textContent = `${station.name} ${this._radarLabelText}`;
-    this._radarPlaying = false;
-    this._updateRadarPlayButton();
+    };
+    updateImage();
+    this._radarTimer = window.setInterval(updateImage, 5 * 60 * 1000);
+  }
+
+  _bomTileUrl(coords, time) {
+    const offset = this._bomTileOffset(coords.z);
+    if (!offset) return "";
+    const col = coords.x - offset.xOffset;
+    const row = coords.y - offset.yOffset;
+    if (col < 0 || col >= offset.width || row < 0 || row >= offset.height) return "";
+    return `${BOM_WMTS_BASE}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
+      `&LAYER=${BOM_WMTS_LAYER.id}&STYLE=default&FORMAT=image/png` +
+      `&TILEMATRIXSET=${BOM_WMTS_LAYER.matrixSet}&TILEMATRIX=${coords.z}` +
+      `&TILEROW=${row}&TILECOL=${col}&time=${encodeURIComponent(time)}`;
+  }
+
+  _bomTileOffset(z) {
+    const info = BOM_TILE_MATRIX_SETS[BOM_WMTS_LAYER.matrixSet]?.[z];
+    if (!info) return null;
+    const tileSpan = BOM_WORLD_EXTENT / Math.pow(2, z);
+    const xOffset = Math.round((info.tlx + BOM_HALF_EXTENT) / tileSpan);
+    const yOffset = Math.round((BOM_HALF_EXTENT - info.tly) / tileSpan);
+    return {
+      xOffset,
+      yOffset,
+      xShiftPx: (((info.tlx + BOM_HALF_EXTENT) / tileSpan) - xOffset) * 256,
+      yShiftPx: (((BOM_HALF_EXTENT - info.tly) / tileSpan) - yOffset) * 256,
+      width: info.w,
+      height: info.h
+    };
   }
 
   _replaceRadarLayers(layers) {
@@ -2544,7 +2695,8 @@ class RadarWiseCard extends HTMLElement {
 
   _showRadarFrame(index) {
     if (!this._radarLayers.length) return;
-    this._radarLayers.forEach((item, layerIndex) => item.layer.setOpacity(layerIndex === index ? this._radarOpacity() : 0));
+    const opacity = this._resolvedRadarProvider() === "bom" ? this._bomOpacity() : this._radarOpacity();
+    this._radarLayers.forEach((item, layerIndex) => item.layer.setOpacity(layerIndex === index ? opacity : 0));
     const active = this._radarLayers[index];
     const label = this.shadowRoot?.getElementById("radar-lbl");
     if (label && active) label.textContent = `${this._shortTime(active.time)} ${this._radarLabelText}`;
@@ -2641,6 +2793,18 @@ class RadarWiseCard extends HTMLElement {
       layer.remove?.();
       window.L.tileLayer(fallback.url, fallback.options).addTo(this._radarMap);
     });
+  }
+
+  _addBomBasemapLayer() {
+    const dark = this._config.radar_basemap === "dark";
+    const url = dark ? BOM_BASEMAPS.dark : BOM_BASEMAPS.default;
+    window.L.tileLayer(url, {
+      maxNativeZoom: 10,
+      maxZoom: BOM_MAX_DISPLAY_ZOOM,
+      noWrap: true,
+      bounds: BOM_AUSTRALIA_BOUNDS,
+      attribution: "&copy; Bureau of Meteorology"
+    }).addTo(this._radarMap);
   }
 
   _basemap(kind = this._config.radar_basemap) {
@@ -3219,6 +3383,8 @@ class RadarWiseCard extends HTMLElement {
       @keyframes ww-summary-drift{0%,8%{transform:translateX(0)}92%,100%{transform:translateX(min(0px, calc(100cqw - 100% - 38px)))}}
       .right{min-width:0;position:relative;overflow:hidden;border-radius:0 22px 22px 0}
       #rmap{width:100%;height:100%;min-height:0}
+      .bom-fallback-radar{width:100%;height:100%;display:grid;place-items:center;background:#d7dee2;overflow:hidden}
+      .bom-fallback-image{display:block;width:100%;height:100%;object-fit:contain;image-rendering:auto}
       .leaflet-container{height:100%;width:100%;position:relative;overflow:hidden;outline-offset:1px;background:#d7dee2;font-family:inherit;font-size:12px;line-height:1.5;z-index:0}
       .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
       .leaflet-container img.leaflet-tile,.leaflet-container img.leaflet-image-layer{max-width:none!important;max-height:none!important}
@@ -3242,6 +3408,7 @@ class RadarWiseCard extends HTMLElement {
       .radar-alert:focus-visible{outline:2px solid #b91c1c;outline-offset:2px}
       .radar-alert[hidden]{display:none}
       .radar-controls{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:1001}
+      .radar-controls[hidden]{display:none}
       .radar-controls button{width:31px;height:31px;border:1px solid rgba(255,255,255,.62);border-radius:999px;background:rgba(255,255,255,.78);color:#0a1e2e;box-shadow:0 2px 10px rgba(10,30,46,.12);font:800 15px/1 var(--ha-font-family-body,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif);display:grid;place-items:center;cursor:pointer;padding:0}
       .radar-controls button:hover{background:rgba(255,255,255,.94)}
       .leaflet-control-zoom{border:0!important;box-shadow:0 2px 12px rgba(10,30,46,.13)!important}
@@ -3708,7 +3875,7 @@ class RadarWiseCardEditor extends HTMLElement {
               </select>
             </label>
           </div>
-          <div class="hint">Auto uses NOAA radar for the United States, Environment Canada radar for Canada, BOM radar for Australia, and RainViewer global radar for the UK and other regions. Future radar is used only when the selected provider exposes future frames.</div>
+          <div class="hint">Auto uses NOAA radar for the United States, Environment Canada radar for Canada, native BOM radar tiles for Australia, and RainViewer global radar for the UK and other regions. Future radar is used only when the selected provider exposes future frames.</div>
         </div>
         <div class="section">
           <div class="section-title">Display</div>

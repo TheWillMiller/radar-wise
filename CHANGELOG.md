@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.7
+
+### Changed
+
+- Reworked Australia BOM radar from legacy station GIF overlays to native Bureau of Meteorology WMTS radar tiles.
+- BOM radar now uses BOM's own no-key basemap tiles, keeping map zoom/pan behavior consistent with the rest of RadarWise.
+- Re-enabled RadarWise playback controls for BOM radar loops.
+
+### Fixed
+
+- Fixed BOM radar appearing as a small square image inside a large gray radar panel.
+
 ## 0.8.6
 
 ### Added
