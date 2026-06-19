@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.8";
+const CARD_VERSION = "0.8.9";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -2601,11 +2601,18 @@ class RadarWiseCard extends HTMLElement {
     const controls = this.shadowRoot?.querySelector(".radar-controls");
     if (controls) controls.removeAttribute("hidden");
     holder.innerHTML = `
-      <div class="bom-fallback-radar">
-        <img class="bom-fallback-image" alt="${_wwEscape(station.name)} BOM radar loop">
+      <div class="bom-fallback-radar" role="img" aria-label="${_wwEscape(station.name)} BOM radar loop">
+        <img class="bom-fallback-layer bom-fallback-base" alt="" src="${this._bomLegacyOverlayUrl(station, "background")}">
+        <img class="bom-fallback-layer bom-fallback-terrain" alt="" src="${this._bomLegacyOverlayUrl(station, "topography")}">
+        <img class="bom-fallback-layer bom-fallback-image bom-fallback-frame" alt="">
+        <img class="bom-fallback-layer bom-fallback-overlay" alt="" src="${this._bomLegacyOverlayUrl(station, "range")}">
+        <img class="bom-fallback-layer bom-fallback-labels" alt="" src="${this._bomLegacyOverlayUrl(station, "locations")}">
       </div>
     `;
-    const img = holder.querySelector(".bom-fallback-image");
+    holder.querySelectorAll(".bom-fallback-layer").forEach((layer) => {
+      layer.onerror = () => { layer.hidden = true; };
+    });
+    const img = holder.querySelector(".bom-fallback-frame");
     const frames = await this._bomLegacyFrames(station);
     const selectedFrames = this._config.radar_timeline === "latest" || this._config.radar_timeline === "future" ? frames.slice(-1) : frames;
     if (!img || !selectedFrames.length) {
@@ -2683,6 +2690,10 @@ class RadarWiseCard extends HTMLElement {
     ));
     if (Number.isNaN(time.getTime())) return null;
     return { time, url: `${BOM_GIF_HOST}/radar/${match[1]}` };
+  }
+
+  _bomLegacyOverlayUrl(station, layer) {
+    return `${BOM_GIF_HOST}/products/radar_transparencies/${station.id}.${layer}.png`;
   }
 
   _generatedBomLegacyFrames(station) {
@@ -3468,8 +3479,13 @@ class RadarWiseCard extends HTMLElement {
       @keyframes ww-summary-drift{0%,8%{transform:translateX(0)}92%,100%{transform:translateX(min(0px, calc(100cqw - 100% - 38px)))}}
       .right{min-width:0;position:relative;overflow:hidden;border-radius:0 22px 22px 0}
       #rmap{width:100%;height:100%;min-height:0}
-      .bom-fallback-radar{width:100%;height:100%;display:grid;place-items:center;background:#d7dee2;overflow:hidden}
-      .bom-fallback-image{display:block;width:100%;height:100%;object-fit:contain;image-rendering:auto}
+      .bom-fallback-radar{width:100%;height:100%;position:relative;background:#d7dee2;overflow:hidden}
+      .bom-fallback-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:auto;pointer-events:none}
+      .bom-fallback-base{z-index:0}
+      .bom-fallback-terrain{z-index:1}
+      .bom-fallback-frame{z-index:2}
+      .bom-fallback-overlay{z-index:3}
+      .bom-fallback-labels{z-index:4}
       .leaflet-container{height:100%;width:100%;position:relative;overflow:hidden;outline-offset:1px;background:#d7dee2;font-family:inherit;font-size:12px;line-height:1.5;z-index:0}
       .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
       .leaflet-container img.leaflet-tile,.leaflet-container img.leaflet-image-layer{max-width:none!important;max-height:none!important}

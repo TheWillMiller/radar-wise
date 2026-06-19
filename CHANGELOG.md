@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.9
+
+### Fixed
+
+- Fixed Australia BOM fallback loops animating without the map/background layer behind the rain.
+- BOM fallback radar now stacks the Bureau of Meteorology background, terrain, range, animated radar, and location label layers together.
+
 ## 0.8.8
 
 ### Fixed
