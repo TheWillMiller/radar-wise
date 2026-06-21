@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.9";
+const CARD_VERSION = "0.8.10";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -801,6 +801,8 @@ class RadarWiseCard extends HTMLElement {
       layout: "auto",
       content_mode: "full",
       density: "comfortable",
+      card_height: "",
+      card_max_height: "",
       hourly_count: 5,
       forecast_count: 5,
       show_timeline: true,
@@ -864,6 +866,9 @@ class RadarWiseCard extends HTMLElement {
     this._bomFallbackStarted = false;
     this._cardResizeObserver = null;
     this._timelineScrollRaf = null;
+    this._timelineScrollRetryTimer = null;
+    this._timelineScrollResizeObserver = null;
+    this._timelineScrollObserved = null;
     this._timelineScrollDir = 1;
     this._timelineScrollPauseUntil = 0;
     this._timelineScrollLast = null;
@@ -876,6 +881,9 @@ class RadarWiseCard extends HTMLElement {
     this._ensureEnvironmentRefreshTimer();
     this._refreshEnvironmentIfStale();
     this._resumeRadarIfNeeded();
+    if (this._config.timeline_autoscroll && this.shadowRoot?.querySelector(".hourly-left")) {
+      this._scheduleTimelineScrollStart();
+    }
   }
 
   disconnectedCallback() {
@@ -1216,6 +1224,8 @@ class RadarWiseCard extends HTMLElement {
       layout: RADARWISE_LAYOUTS[layout] ? layout : "auto",
       content_mode: RADARWISE_CONTENT_MODES[String(config.content_mode || "full").toLowerCase()] ? String(config.content_mode || "full").toLowerCase() : "full",
       density: RADARWISE_DENSITIES[String(config.density || "comfortable").toLowerCase()] ? String(config.density || "comfortable").toLowerCase() : "comfortable",
+      card_height: this._normalizeCardPixels(config.card_height),
+      card_max_height: this._normalizeCardPixels(config.card_max_height),
       language: RADARWISE_LANGUAGES[language] ? language : "auto",
       time_format: RADARWISE_TIME_FORMATS[timeFormat] ? timeFormat : "auto",
       font_family: RADARWISE_FONT_FAMILIES[fontFamily] ? fontFamily : "auto",
@@ -1258,6 +1268,24 @@ class RadarWiseCard extends HTMLElement {
       custom_sensors: this._normalizeCustomSensors(config.custom_sensors),
       show_custom_sensors: config.show_custom_sensors !== false
     };
+  }
+
+  _normalizeCardPixels(value) {
+    if (value === undefined || value === null || value === "") return "";
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) return "";
+    return Math.max(180, Math.min(1200, Math.round(number)));
+  }
+
+  _cardSizeStyle() {
+    const height = this._normalizeCardPixels(this._config.card_height);
+    let maxHeight = this._normalizeCardPixels(this._config.card_max_height);
+    if (height && !maxHeight) maxHeight = height;
+    if (height && maxHeight && maxHeight < height) maxHeight = height;
+    return [
+      height ? `--radarwise-card-height:${height}px` : "",
+      maxHeight ? `--radarwise-card-max-height:${maxHeight}px` : ""
+    ].filter(Boolean).join(";");
   }
 
   _normalizeCustomSensors(value) {
@@ -1344,6 +1372,8 @@ class RadarWiseCard extends HTMLElement {
         this._config.layout,
         this._config.content_mode,
         this._config.density,
+        this._config.card_height,
+        this._config.card_max_height,
         this._config.theme_mode,
         this._config.units,
         this._language(),
@@ -1541,7 +1571,8 @@ class RadarWiseCard extends HTMLElement {
   const wl = this._sectionOrder('weather');
   const rl = this._sectionOrder('radar');
   const cb = cl * 10, wb = wl * 10, rb = rl * 10;
-  return `--ww-col1:${w[0]}fr;--ww-col2:${w[1]}fr;--ww-col3:${w[2]}fr;--ww-left-order:${cl};--ww-center-order:${wl};--ww-right-order:${rl};--ww-ord-clock-title:${cb+1};--ww-ord-clock-hourly:${cb+2};--ww-ord-weather:${wb+1};--ww-ord-radar:${rb+1};`;
+  const sizeStyle = this._cardSizeStyle();
+  return `--ww-col1:${w[0]}fr;--ww-col2:${w[1]}fr;--ww-col3:${w[2]}fr;--ww-left-order:${cl};--ww-center-order:${wl};--ww-right-order:${rl};--ww-ord-clock-title:${cb+1};--ww-ord-clock-hourly:${cb+2};--ww-ord-weather:${wb+1};--ww-ord-radar:${rb+1};${sizeStyle ? `${sizeStyle};` : ""}`;
 })()}--ww-hourly-count:${Math.max(1, Math.min(24, Number(this._config.hourly_count) || 5))};--ww-forecast-count:${Math.max(1, Math.min(7, Number(this._config.forecast_count) || 5))}">
             ${content.left ? `
               <section class="left">
@@ -1630,7 +1661,7 @@ class RadarWiseCard extends HTMLElement {
     }
     this._updateClock();
     if (this._config.timeline_autoscroll && content.timeline) {
-      window.setTimeout(() => this._startTimelineScroll(), 400);
+      this._scheduleTimelineScrollStart();
     }
     this._setupCardResizeObserver();
   }
@@ -2307,8 +2338,39 @@ class RadarWiseCard extends HTMLElement {
 
   _stopTimelineScroll() {
     if (this._timelineScrollRaf) cancelAnimationFrame(this._timelineScrollRaf);
+    window.clearTimeout(this._timelineScrollRetryTimer);
+    this._timelineScrollResizeObserver?.disconnect?.();
+    this._timelineScrollRaf = null;
+    this._timelineScrollRetryTimer = null;
+    this._timelineScrollResizeObserver = null;
+    this._timelineScrollObserved = null;
+    this._timelineScrollLast = null;
+  }
+
+  _scheduleTimelineScrollStart(delay = 400, attempt = 0) {
+    window.clearTimeout(this._timelineScrollRetryTimer);
+    this._timelineScrollRetryTimer = window.setTimeout(() => this._startTimelineScroll(attempt), delay);
+  }
+
+  _cancelTimelineScrollFrame() {
+    if (this._timelineScrollRaf) cancelAnimationFrame(this._timelineScrollRaf);
     this._timelineScrollRaf = null;
     this._timelineScrollLast = null;
+  }
+
+  _watchTimelineScrollContainer(container) {
+    if (!window.ResizeObserver || this._timelineScrollObserved === container) return;
+    this._timelineScrollResizeObserver?.disconnect?.();
+    this._timelineScrollObserved = container;
+    let lastGeometry = "";
+    this._timelineScrollResizeObserver = new ResizeObserver(() => {
+      if (!this._config.timeline_autoscroll || !container.isConnected) return;
+      const geometry = `${container.clientHeight}:${container.scrollHeight}`;
+      if (geometry === lastGeometry) return;
+      lastGeometry = geometry;
+      this._scheduleTimelineScrollStart(120);
+    });
+    this._timelineScrollResizeObserver.observe(container);
   }
 
   _setupCardResizeObserver() {
@@ -2327,11 +2389,17 @@ class RadarWiseCard extends HTMLElement {
     this._cardResizeObserver.observe(outer);
   }
 
-  _startTimelineScroll() {
-    this._stopTimelineScroll();
+  _startTimelineScroll(attempt = 0) {
+    window.clearTimeout(this._timelineScrollRetryTimer);
+    this._timelineScrollRetryTimer = null;
+    this._cancelTimelineScrollFrame();
     const container = this.shadowRoot?.querySelector(".hourly-left");
     if (!container) return;
-    if (container.scrollHeight <= container.clientHeight + 4) return;
+    this._watchTimelineScrollContainer(container);
+    if (container.scrollHeight <= container.clientHeight + 4) {
+      if (attempt < 12) this._scheduleTimelineScrollStart(250, attempt + 1);
+      return;
+    }
     const SPEED = 22;
     const PAUSE = 2200;
     this._timelineScrollDir = 1;
@@ -2358,8 +2426,11 @@ class RadarWiseCard extends HTMLElement {
         this._timelineScrollPauseUntil = now + PAUSE;
       }
     };
-    container.addEventListener("mouseenter", () => { this._timelineScrollPauseUntil = Date.now() + 86400000; }, { passive: true });
-    container.addEventListener("mouseleave", () => { this._timelineScrollPauseUntil = Date.now() + 800; }, { passive: true });
+    if (!container.__radarWiseTimelineScrollWired) {
+      container.addEventListener("mouseenter", () => { this._timelineScrollPauseUntil = Date.now() + 86400000; }, { passive: true });
+      container.addEventListener("mouseleave", () => { this._timelineScrollPauseUntil = Date.now() + 800; }, { passive: true });
+      container.__radarWiseTimelineScrollWired = true;
+    }
     this._timelineScrollRaf = requestAnimationFrame(tick);
   }
 
@@ -3503,7 +3574,9 @@ class RadarWiseCard extends HTMLElement {
       .leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
       .leaflet-control-zoom{margin-left:10px;margin-top:10px}
       .leaflet-control-zoom a{display:block;text-align:center;text-decoration:none}
-      .leaflet-control-attribution{position:absolute;right:0;bottom:0;margin:0;padding:0 5px}
+      .leaflet-control-attribution{position:absolute;right:0;bottom:0;margin:0;padding:2px 6px;max-width:min(72%,420px);max-height:38px;overflow:auto;text-align:right;white-space:normal;scrollbar-width:none;border-radius:8px 0 0 0}
+      .leaflet-control-attribution::-webkit-scrollbar{display:none}
+      .leaflet-control-attribution a{white-space:nowrap}
       .radar-lbl{position:absolute;bottom:10px;left:12px;font-size:12px;color:rgba(10,30,46,0.76);background:rgba(255,255,255,0.78);border:1px solid rgba(255,255,255,0.55);padding:4px 10px;border-radius:99px;font-weight:800;z-index:1000;pointer-events:none}
       .radar-alert{position:absolute;top:10px;left:54px;right:126px;max-width:max-content;font-size:12px;color:#7f1d1d;background:rgba(254,242,242,.9);border:1px solid rgba(185,28,28,.28);box-shadow:0 2px 10px rgba(127,29,29,.12);padding:5px 10px;border-radius:99px;font-weight:900;z-index:1000;pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
       .radar-alert:focus-visible{outline:2px solid #b91c1c;outline-offset:2px}
@@ -3514,7 +3587,7 @@ class RadarWiseCard extends HTMLElement {
       .radar-controls button:hover{background:rgba(255,255,255,.94)}
       .leaflet-control-zoom{border:0!important;box-shadow:0 2px 12px rgba(10,30,46,.13)!important}
       .leaflet-control-zoom a{width:34px!important;height:34px!important;line-height:31px!important;color:#0a1e2e!important;background:rgba(255,255,255,.82)!important;border-color:rgba(10,30,46,.10)!important;font-weight:650!important}
-      .leaflet-control-attribution{background:rgba(255,255,255,.70)!important;color:rgba(10,30,46,.72)!important}
+      .leaflet-control-attribution{background:rgba(255,255,255,.68)!important;color:rgba(10,30,46,.72)!important;font-size:10px!important;line-height:1.2!important;box-shadow:0 1px 8px rgba(10,30,46,.10)}
       .leaflet-popup{position:absolute;text-align:center;margin-bottom:20px}
       .leaflet-popup-content-wrapper{background:rgba(255,255,255,.96);color:#0a1e2e;border-radius:12px;box-shadow:0 4px 18px rgba(10,30,46,.22);border:1px solid rgba(10,30,46,.12);padding:1px;text-align:left}
       .leaflet-popup-content{font-size:13px;line-height:1.35;margin:12px 14px;min-width:180px;max-width:320px}
@@ -3559,6 +3632,7 @@ class RadarWiseCard extends HTMLElement {
       .card-grid.layout-stacked,.card-grid.layout-compact{display:flex;flex-direction:column;height:auto;max-height:none}.card-grid.layout-stacked .left,.card-grid.layout-compact .left{display:contents}.card-grid.layout-stacked .clock-panel,.card-grid.layout-compact .clock-panel{order:1;padding:18px 22px 0;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}.card-grid.layout-stacked .center,.card-grid.layout-compact .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid.layout-stacked .left>.section-title,.card-grid.layout-compact .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 22px;margin-top:4px}.card-grid.layout-stacked .hourly-left,.card-grid.layout-compact .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 22px 16px}.card-grid.layout-stacked .right,.card-grid.layout-compact .right{order:var(--ww-ord-radar,30);border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid.layout-stacked .right,.card-grid.layout-stacked #rmap{height:300px;min-height:300px}.card-grid.layout-compact .right,.card-grid.layout-compact #rmap{height:220px;min-height:220px}.card-grid.layout-compact .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));min-height:150px}.card-grid.layout-compact .fc-slot:nth-child(n+4){display:none}
       @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%);height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:38px}.card-grid.layout-wide_panel .clock-date{font-size:12px;margin:5px 0 7px}.card-grid.layout-wide_panel .forecast-summary{min-height:26px;margin-bottom:8px}.card-grid.layout-wide_panel .forecast-summary-text{font-size:11px;padding:6px 14px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:21px}.card-grid.layout-wide_panel .temp-now{font-size:38px}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:28px}.card-grid.layout-wide_panel .stats-row,.card-grid.layout-wide_panel .custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .custom-sensors-row{margin-top:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
       @container(max-width:720px){.card-grid.layout-wide_panel .clock-context{grid-template-columns:1fr;gap:6px;margin-bottom:8px}.card-grid.layout-wide_panel .environment-strip{grid-template-columns:1fr;gap:5px}.card-grid.layout-wide_panel .env-tile{grid-template-columns:20px minmax(0,1fr);min-height:40px;padding:5px 7px}.card-grid.layout-wide_panel .env-ico,.card-grid.layout-wide_panel .env-ico svg{width:20px;height:20px}.card-grid.layout-wide_panel .env-lbl,.card-grid.layout-wide_panel .env-note{font-size:9px}.card-grid.layout-wide_panel .env-val{font-size:13px}.card-grid.layout-wide_panel .env-note{display:none}}
+      @container(max-width:720px){.card-grid.layout-wide_panel{height:var(--radarwise-card-height,360px);max-height:var(--radarwise-card-max-height,360px)}.card-grid.layout-wide_panel .leaflet-control-attribution{max-width:min(58%,260px);max-height:30px;font-size:9px!important}}
       @media(max-width:760px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
       @media(prefers-reduced-motion:reduce){:host([animations]) .ww-sun-rays,:host([animations]) .ww-sun-core,:host([animations]) .ww-cloud,:host([animations]) .ww-rain,:host([animations]) .ww-snow,:host([animations]) .ww-bolt,:host([animations]) .ww-moon,:host([animations]) .ww-moon-glow,:host([animations]) .ww-fog,:host([animations]) .hour-row,:host([animations]) .fc-slot,:host([animations]) .forecast-summary-text{animation:none!important}:host([animations]) .hour-bar-fill{transition:none!important}}
       .card-grid.content-radar{height:var(--radarwise-card-height,clamp(310px,20cqw,460px));max-height:var(--radarwise-card-max-height,480px)}
@@ -3686,7 +3760,7 @@ class RadarWiseCardEditor extends HTMLElement {
   }
 
   _setValue(key, value) {
-    const numberKeys = ["latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"];
+    const numberKeys = ["latitude", "longitude", "hourly_count", "forecast_count", "card_height", "card_max_height", "radar_zoom", "radar_speed"];
     const booleanKeys = ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary", "show_environment", "show_custom_sensors", "timeline_autoscroll"];
     let nextValue = value;
     if (numberKeys.includes(key)) nextValue = value === "" ? undefined : Number(value);
@@ -4173,6 +4247,11 @@ class RadarWiseCardEditor extends HTMLElement {
               <span class="col-width-val" id="stack_below_val">${config.stack_below ? config.stack_below + "px" : "Off"}</span>
             </div>
           </div>
+          <div class="grid" style="margin-top:14px">
+            <label>Card height <input id="card_height" type="number" min="0" max="1200" step="10" value="${_wwEscape(config.card_height || "")}" placeholder="Auto"></label>
+            <label>Max card height <input id="card_max_height" type="number" min="0" max="1200" step="10" value="${_wwEscape(config.card_max_height || "")}" placeholder="Auto"></label>
+          </div>
+          <div class="hint">Use pixel heights when dashboard panel mode has extra vertical room. Leave blank for RadarWise's responsive defaults.</div>
           <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
             <label class="check"><input id="show_forecast_summary" type="checkbox" ${config.show_forecast_summary === false ? "" : "checked"}> Show forecast summary ticker</label>
             <label class="check"><input id="show_timeline" type="checkbox" ${config.show_timeline === false ? "" : "checked"}> Show hourly / forecast list</label>
@@ -4198,7 +4277,7 @@ class RadarWiseCardEditor extends HTMLElement {
         </div>
       </div>
     `;
-    ["entity", "temperature_entity", "humidity_entity", "dew_point_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "radar_zoom", "radar_speed"].forEach((id) => {
+    ["entity", "temperature_entity", "humidity_entity", "dew_point_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "card_height", "card_max_height", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
     ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary", "show_environment", "show_custom_sensors", "timeline_autoscroll"].forEach((id) => {

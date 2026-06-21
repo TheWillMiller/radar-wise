@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.10
+
+### Added
+
+- Added optional `card_height` and `card_max_height` settings, exposed in the visual editor, for dashboards that need a taller fixed panel in wide/tablet layouts.
+
+### Changed
+
+- Made Leaflet map attribution more compact and scrollable so long provider credits no longer dominate narrow radar panels.
+
+### Fixed
+
+- Fixed forecast-list auto-scroll giving up when the hourly list did not overflow during the first layout pass.
+
 ## 0.8.9
 
 ### Fixed

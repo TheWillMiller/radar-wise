@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.9`
+**Latest release:** `v0.8.10`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -144,7 +144,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.9/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.10/radarwise-card.js
 type: module
 ```
 
@@ -342,6 +342,8 @@ Radar location and map controls:
 | `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, `radar_bottom`, or `compact`. Use `radar_bottom` for a full-width radar below weather content, or `stacked`/`compact` for narrow dashboards. |
 | `content_mode` | No | `full` | Smart content preset: `full`, `essentials`, `forecast`, `timeline`, `radar`, or `custom`. Use `custom` for manual visibility switches. |
 | `density` | No | `comfortable` | Sizing preset: `comfortable`, `slim`, or `large`. Slim makes thinner dashboard rows; large favors wall-panel readability. |
+| `card_height` | No |  | Optional fixed card height in pixels, 180-1200. Useful for panel dashboards with extra vertical room. |
+| `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
