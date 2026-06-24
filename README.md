@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.10`
+**Latest release:** `v0.8.11`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -54,6 +54,7 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Optional local temperature sensor override
 - Optional humidity sensor fallback
 - Optional dew point sensor fallback
+- Optional local wind speed and wind direction/bearing overrides
 - Optional UV index badge beside the current condition
 - Optional hourly UV index when exposed by the provider or Open-Meteo
 - Optional AQI tile beside the clock from Home Assistant sensors or Open-Meteo
@@ -144,7 +145,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.10/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.11/radarwise-card.js
 type: module
 ```
 
@@ -323,6 +324,8 @@ Radar location and map controls:
 | `temperature_entity` | No |  | Optional temperature sensor/helper entity for the current displayed temperature. Useful when an indoor, patio, or hyperlocal sensor differs from the weather provider. |
 | `humidity_entity` | No |  | Optional humidity sensor/helper entity. Useful when the weather entity has no humidity attribute. |
 | `dew_point_entity` | No |  | Optional dew point sensor/helper entity. RadarWise also auto-reads common dew point attributes from the weather entity when available. |
+| `wind_speed_entity` | No |  | Optional local wind speed sensor/helper entity. Useful when your weather station has better wind data than the weather provider. |
+| `wind_direction_entity` | No |  | Optional local wind direction/bearing sensor/helper entity. Accepts compass values like `SW` or numeric degree bearings. |
 | `air_quality_entity` | No |  | Optional AQI/air-quality sensor or helper entity. Displays beside the clock/date when configured. |
 | `uv_index_entity` | No |  | Optional UV index sensor/helper entity. Displays beside the current condition. |
 | `pollen_entity` | No |  | Optional general pollen sensor/helper entity. |

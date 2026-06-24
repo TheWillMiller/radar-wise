@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.11
+
+### Added
+
+- Added optional `wind_speed_entity` and `wind_direction_entity` overrides for local weather stations, with visual editor selectors.
+
+### Fixed
+
+- Fixed localized condition labels for compact Home Assistant condition IDs like `partlycloudy`.
+
 ## 0.8.10
 
 ### Added
