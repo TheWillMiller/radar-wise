@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.12
+
+### Changed
+
+- Visible panel widths now rebalance when timeline/current weather/radar panels are hidden, so two-panel and focused layouts no longer fall back to awkward 50/50 sizing.
+- Built-in detail tiles and custom sensor tiles now share one wrapping details grid, reducing gaps and extra card height.
+
+### Fixed
+
+- Fixed RainViewer radar zooms above level 7 by overzooming the native RainViewer radar tiles instead of requesting unsupported higher-zoom radar tiles.
+
 ## 0.8.11
 
 ### Added
