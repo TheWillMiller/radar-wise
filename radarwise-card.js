@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.14";
+const CARD_VERSION = "0.8.15";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -82,6 +82,12 @@ const RADARWISE_TIME_FORMATS = {
   auto: "Auto",
   "12": "12-hour",
   "24": "24-hour"
+};
+
+const RADARWISE_TIME_ZONE_MODES = {
+  browser: "Browser / device",
+  home_assistant: "Home Assistant location",
+  custom: "Custom IANA time zone"
 };
 
 const RADARWISE_FONT_FAMILIES = {
@@ -848,6 +854,8 @@ class RadarWiseCard extends HTMLElement {
       theme_mode: "radarwise",
       units: "auto",
       language: "auto",
+      time_zone_mode: "browser",
+      time_zone: "",
       layout: "auto",
       content_mode: "full",
       density: "comfortable",
@@ -1236,6 +1244,7 @@ class RadarWiseCard extends HTMLElement {
     const environmentSource = String(config.environment_source || "sensors").toLowerCase();
     const forecastMode = String(config.forecast_mode || "auto").toLowerCase();
     const timeFormat = String(config.time_format || "auto").toLowerCase();
+    const timeZoneMode = String(config.time_zone_mode || "browser").toLowerCase();
     const fontFamily = String(config.font_family || "auto").toLowerCase();
     return {
       title: "Local Weather",
@@ -1257,6 +1266,8 @@ class RadarWiseCard extends HTMLElement {
       theme_mode: themeMode,
       units,
       time_format: "auto",
+      time_zone_mode: "browser",
+      time_zone: "",
       font_family: "auto",
       hourly_count: 5,
       forecast_count: 5,
@@ -1293,6 +1304,8 @@ class RadarWiseCard extends HTMLElement {
       card_max_height: this._normalizeCardPixels(config.card_max_height),
       language: RADARWISE_LANGUAGES[language] ? language : "auto",
       time_format: RADARWISE_TIME_FORMATS[timeFormat] ? timeFormat : "auto",
+      time_zone_mode: RADARWISE_TIME_ZONE_MODES[timeZoneMode] ? timeZoneMode : "browser",
+      time_zone: String(config.time_zone || "").trim(),
       font_family: RADARWISE_FONT_FAMILIES[fontFamily] ? fontFamily : "auto",
       environment_source: RADARWISE_ENVIRONMENT_SOURCES[environmentSource] ? environmentSource : "sensors",
       forecast_mode: RADARWISE_FORECAST_MODES[forecastMode] ? forecastMode : "auto",
@@ -1456,6 +1469,9 @@ class RadarWiseCard extends HTMLElement {
         this._config.units,
         this._language(),
         this._config.time_format,
+        this._config.time_zone_mode,
+        this._config.time_zone,
+        this._resolvedTimeZone(),
         this._config.font_family,
         this._config.show_radar,
         this._config.show_timeline,
@@ -1850,13 +1866,14 @@ class RadarWiseCard extends HTMLElement {
       ["Weed pollen entity", this._config.weed_pollen_entity || "none"],
       ["Mold pollen entity", this._config.mold_pollen_entity || "none"],
       ["Environment source", this._config.environment_source || "sensors"],
-      ["Environment updated", this._environmentData?.loaded ? new Date(this._environmentData.loaded).toLocaleString() : "never"],
+      ["Environment updated", this._environmentData?.loaded ? this._dateTime(this._environmentData.loaded) : "never"],
       ["Environment error", this._environmentData?.error || "none"],
       ["Country", this._config.country],
       ["Radar", data.provider],
       ["Content mode", this._config.content_mode],
       ["Density", this._config.density],
       ["Time format", this._config.time_format],
+      ["Time zone", this._timeZoneLabel()],
       ["Font family", this._config.font_family],
       ["Units", data.units.temperatureUnit],
       ["Hourly count", data.hourly.length],
@@ -3540,26 +3557,83 @@ class RadarWiseCard extends HTMLElement {
   }
 
   _clockTime(date) {
-    if (this._uses24HourTime()) return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-    return `${(date.getHours() % 12) || 12}:${String(date.getMinutes()).padStart(2, "0")}`;
+    const parts = this._timeParts(date);
+    if (!parts) return "--";
+    if (this._uses24HourTime()) return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+    return `${(parts.hour % 12) || 12}:${String(parts.minute).padStart(2, "0")}`;
   }
 
   _clockAmPm(date) {
-    return this._uses24HourTime() ? "" : date.getHours() >= 12 ? this._t("pm") : this._t("am");
+    const parts = this._timeParts(date);
+    return this._uses24HourTime() || !parts ? "" : parts.hour >= 12 ? this._t("pm") : this._t("am");
   }
 
   _shortTime(dateLike) {
-    const date = new Date(dateLike);
-    if (Number.isNaN(date.getTime())) return "--";
-    if (this._uses24HourTime()) return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-    return `${(date.getHours() % 12) || 12}:${String(date.getMinutes()).padStart(2, "0")} ${date.getHours() >= 12 ? this._t("pm") : this._t("am")}`;
+    const parts = this._timeParts(dateLike);
+    if (!parts) return "--";
+    if (this._uses24HourTime()) return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+    return `${(parts.hour % 12) || 12}:${String(parts.minute).padStart(2, "0")} ${parts.hour >= 12 ? this._t("pm") : this._t("am")}`;
   }
 
   _hour(dateLike) {
-    const date = new Date(dateLike);
+    const parts = this._timeParts(dateLike);
+    if (!parts) return "--";
+    if (this._uses24HourTime()) return `${String(parts.hour).padStart(2, "0")}:00`;
+    return `${(parts.hour % 12) || 12} ${parts.hour >= 12 ? this._t("pm") : this._t("am")}`;
+  }
+
+  _resolvedTimeZone() {
+    const mode = String(this._config.time_zone_mode || "browser");
+    if (mode === "home_assistant") return this._validTimeZone(this._hass?.config?.time_zone);
+    if (mode === "custom") return this._validTimeZone(this._config.time_zone);
+    return undefined;
+  }
+
+  _validTimeZone(value) {
+    const timeZone = String(value || "").trim();
+    if (!timeZone) return undefined;
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date(0));
+      return timeZone;
+    } catch (err) {
+      return undefined;
+    }
+  }
+
+  _timeZoneOptions(options = {}) {
+    const timeZone = this._resolvedTimeZone();
+    return timeZone ? { ...options, timeZone } : options;
+  }
+
+  _timeParts(dateLike) {
+    const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+    if (Number.isNaN(date.getTime())) return null;
+    const parts = new Intl.DateTimeFormat("en-US", this._timeZoneOptions({
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    })).formatToParts(date);
+    const valueFor = (type) => Number(parts.find((part) => part.type === type)?.value);
+    const hour = valueFor("hour");
+    const minute = valueFor("minute");
+    return Number.isFinite(hour) && Number.isFinite(minute) ? { hour, minute } : null;
+  }
+
+  _timeZoneLabel() {
+    const configured = this._resolvedTimeZone();
+    if (configured) return configured;
+    const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const mode = String(this._config.time_zone_mode || "browser");
+    return mode === "browser" ? (browser || "browser local") : `${browser || "browser local"} (fallback)`;
+  }
+
+  _dateTime(dateLike) {
+    const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "--";
-    if (this._uses24HourTime()) return `${String(date.getHours()).padStart(2, "0")}:00`;
-    return `${(date.getHours() % 12) || 12} ${date.getHours() >= 12 ? this._t("pm") : this._t("am")}`;
+    return new Intl.DateTimeFormat(this._localeCode(), this._timeZoneOptions({
+      dateStyle: "short",
+      timeStyle: "short"
+    })).format(date);
   }
 
   _uses24HourTime() {
@@ -3582,16 +3656,16 @@ class RadarWiseCard extends HTMLElement {
   _dayName(dateLike) {
     const date = new Date(dateLike);
     if (Number.isNaN(date.getTime())) return "--";
-    return new Intl.DateTimeFormat(this._localeCode(), { weekday: "short" }).format(date);
+    return new Intl.DateTimeFormat(this._localeCode(), this._timeZoneOptions({ weekday: "short" })).format(date);
   }
 
   _longDate(date) {
-    return new Intl.DateTimeFormat(this._localeCode(), {
+    return new Intl.DateTimeFormat(this._localeCode(), this._timeZoneOptions({
       weekday: "long",
       month: "long",
       day: "numeric",
       year: "numeric"
-    }).format(date);
+    })).format(date);
   }
 
   _titleCase(text) {
@@ -4325,6 +4399,12 @@ class RadarWiseCardEditor extends HTMLElement {
                 ${Object.entries(RADARWISE_TIME_FORMATS).map(([value, label]) => `<option value="${value}" ${(config.time_format || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
               </select>
             </label>
+            <label>Time zone source
+              <select id="time_zone_mode">
+                ${Object.entries(RADARWISE_TIME_ZONE_MODES).map(([value, label]) => `<option value="${value}" ${(config.time_zone_mode || "browser") === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
+            <label>Custom time zone <input id="time_zone" value="${_wwEscape(config.time_zone || "")}" placeholder="America/New_York"></label>
             <label>Font
               <select id="font_family">
                 ${Object.entries(RADARWISE_FONT_FAMILIES).map(([value, label]) => `<option value="${value}" ${(config.font_family || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
@@ -4343,7 +4423,7 @@ class RadarWiseCardEditor extends HTMLElement {
               </select>
             </label>
           </div>
-          <div class="hint">Daily and twice-daily choices are preferences. RadarWise falls back automatically when the weather provider does not supply the selected forecast type.</div>
+          <div class="hint">The custom time zone uses an IANA name such as America/New_York and applies only when Custom is selected. Invalid or unavailable zones safely fall back to browser time. Daily and twice-daily choices are preferences; RadarWise falls back automatically when the weather provider does not supply the selected forecast type.</div>
           <div class="layout-label">Content focus</div>
           <div class="layout-picker">
             ${Object.entries({
@@ -4529,7 +4609,7 @@ class RadarWiseCardEditor extends HTMLElement {
         </div>
       </div>
     `;
-    ["entity", "temperature_entity", "humidity_entity", "dew_point_entity", "wind_speed_entity", "wind_direction_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "forecast_mode", "card_height", "card_max_height", "radar_zoom", "radar_speed"].forEach((id) => {
+    ["entity", "temperature_entity", "humidity_entity", "dew_point_entity", "wind_speed_entity", "wind_direction_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "time_zone_mode", "time_zone", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "forecast_mode", "card_height", "card_max_height", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
     ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary", "show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset", "show_environment", "show_custom_sensors", "timeline_autoscroll"].forEach((id) => {

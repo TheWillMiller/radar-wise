@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.14`
+**Latest release:** `v0.8.15`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -69,6 +69,7 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Precipitation probability and amount when exposed by the weather provider
 - Fahrenheit and Celsius support
 - Card language support for Auto, English, French, Spanish, German, Portuguese, and Dutch
+- Per-card browser, Home Assistant location, or custom IANA time zone
 - RadarWise built-in theme mode
 - Home Assistant theme-aware mode with `theme_mode: auto`
 - Layout presets: auto, wide panel, stacked, radar bottom, and compact
@@ -146,7 +147,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.14/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.15/radarwise-card.js
 type: module
 ```
 
@@ -166,6 +167,7 @@ layout: auto
 forecast_count: 5
 forecast_mode: auto
 hourly_count: 5
+time_zone_mode: browser
 latitude: 33.688
 longitude: -78.886
 grid_options:
@@ -185,6 +187,19 @@ show_sunset: false
 ```
 
 The visual editor exposes the same choices. If a provider does not supply the preferred daily or twice-daily forecast type, RadarWise falls back automatically.
+
+To keep a card on the Home Assistant location time while the viewing device travels, or to give separate cards different time zones:
+
+```yaml
+# Use Settings > System > General > Time zone
+time_zone_mode: home_assistant
+
+# Or choose a specific IANA time zone
+time_zone_mode: custom
+time_zone: America/New_York
+```
+
+The default `browser` mode preserves existing behavior. The selected zone applies to the main clock and date, forecast labels, sunrise/sunset, update timestamps, and radar frame labels. Invalid or unavailable custom zones fall back safely to browser-local time.
 
 ## Canada Example
 
@@ -301,7 +316,7 @@ RadarWise includes a Home Assistant visual editor. When adding the card from the
 - Choose United States, Canada, Australia, United Kingdom, or global/other setup
 - Choose automatic radar, NOAA radar, Environment Canada radar, BOM radar, RainViewer radar, or no radar
 - Choose radar timeline, style, map style, and radar loop speed
-- Set title, units, forecast counts, forecast card frequency, language, time format, font preset, and theme mode
+- Set title, units, forecast counts, forecast card frequency, language, time format, per-card time zone, font preset, and theme mode
 - Choose card language: Auto, English, French, Spanish, German, Portuguese, or Dutch
 - Choose a layout preset with visual layout tiles
 - Drag panels to reorder clock/timeline, current weather, and radar
@@ -357,6 +372,8 @@ Radar location and map controls:
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, or `nl`. Auto follows Home Assistant/browser language when possible. |
 | `time_format` | No | `auto` | Clock and timestamp format: `auto`, `12`, or `24`. Auto follows the Home Assistant time setting or browser locale when possible. |
+| `time_zone_mode` | No | `browser` | Per-card time zone source: `browser`, `home_assistant`, or `custom`. Home Assistant mode uses the location time zone configured under Settings > System > General. |
+| `time_zone` | No |  | IANA time zone used when `time_zone_mode: custom`, such as `America/New_York`, `Europe/London`, or `Australia/Sydney`. Invalid values fall back to browser time. |
 | `font_family` | No | `auto` | Safe local font preset: `auto`, `system`, `rounded`, `condensed`, or `mono`. No remote fonts are loaded. |
 | `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, `radar_bottom`, or `compact`. Use `radar_bottom` for a full-width radar below weather content, or `stacked`/`compact` for narrow dashboards. |
 | `content_mode` | No | `full` | Smart content preset: `full`, `essentials`, `forecast`, `timeline`, `radar`, or `custom`. Use `custom` for manual visibility switches. |

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.15
+
+### Added
+
+- Added per-card browser, Home Assistant location, and custom IANA time-zone settings in YAML and the visual editor.
+- Added timezone regression coverage for daylight-saving transitions, UTC date boundaries, Home Assistant server time, and invalid-zone fallback.
+
+### Changed
+
+- Applied the selected card time zone consistently to the main clock/date, forecast labels, sunrise/sunset, update timestamps, radar frame labels, and debug timestamps.
+- Preserved browser-local time as the default for existing cards.
+
 ## 0.8.14
 
 ### Added

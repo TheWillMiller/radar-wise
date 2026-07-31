@@ -62,7 +62,13 @@ function assert(condition, message) {
 
   editor._setValue("forecast_mode", "daily");
   assert(editor._config.forecast_mode === "daily", "editor should store the forecast-card preference");
+  editor._setValue("time_zone_mode", "custom");
+  editor._setValue("time_zone", "America/Toronto");
+  assert(editor._config.time_zone_mode === "custom", "editor should store the time zone source");
+  assert(editor._config.time_zone === "America/Toronto", "editor should store the custom IANA time zone");
   assert(editor.shadowRoot.innerHTML.includes('id="forecast_mode"'), "visual editor should render the forecast mode selector");
+  assert(editor.shadowRoot.innerHTML.includes('id="time_zone_mode"'), "visual editor should render the time zone source selector");
+  assert(editor.shadowRoot.innerHTML.includes('id="time_zone"'), "visual editor should render the custom time zone input");
   assert(editor.shadowRoot.innerHTML.includes('id="show_humidity"'), "visual editor should render the built-in detail switches");
 }
 
@@ -75,9 +81,55 @@ function createCard(config = {}) {
 {
   const card = createCard();
   assert(card._config.forecast_mode === "auto", "forecast mode should default to auto");
+  assert(card._config.time_zone_mode === "browser", "time zone mode should default to browser for backward compatibility");
+  assert(card._config.time_zone === "", "custom time zone should default to blank");
   for (const key of ["show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset"]) {
     assert(card._config[key] === true, `${key} should default to visible`);
   }
+}
+
+{
+  const beforeDstJump = new Date("2026-03-08T06:30:00Z");
+  const afterDstJump = new Date("2026-03-08T07:30:00Z");
+  const card = createCard({
+    time_format: "24",
+    time_zone_mode: "custom",
+    time_zone: "America/New_York"
+  });
+
+  assert(card._clockTime(beforeDstJump) === "01:30", "custom time zone should format the pre-DST clock time");
+  assert(card._clockTime(afterDstJump) === "03:30", "custom time zone should honor the DST jump");
+  assert(card._shortTime(afterDstJump) === "03:30", "custom time zone should apply to compact timestamps");
+  assert(card._hour(afterDstJump) === "03:00", "custom time zone should apply to hourly forecast labels");
+}
+
+{
+  const card = createCard({
+    time_format: "12",
+    time_zone_mode: "custom",
+    time_zone: "America/Los_Angeles"
+  });
+  const utcSaturday = new Date("2026-08-01T02:30:00Z");
+
+  assert(card._clockTime(utcSaturday) === "7:30", "custom time zone should apply to the main clock");
+  assert(card._clockAmPm(utcSaturday) === "PM", "custom time zone should apply to AM/PM");
+  assert(card._dayName(utcSaturday) === "Fri", "custom time zone should preserve the local day across UTC midnight");
+  assert(card._longDate(utcSaturday).includes("July 31, 2026"), "custom time zone should preserve the local calendar date across UTC midnight");
+}
+
+{
+  const card = createCard({ time_format: "24", time_zone_mode: "home_assistant" });
+  card._hass = { config: { time_zone: "Europe/London" }, locale: {} };
+
+  assert(card._clockTime(new Date("2026-07-31T12:00:00Z")) === "13:00", "Home Assistant mode should use the configured server time zone in summer");
+  assert(card._clockTime(new Date("2026-12-31T12:00:00Z")) === "12:00", "Home Assistant mode should use the configured server time zone in winter");
+}
+
+{
+  const invalid = createCard({ time_zone_mode: "custom", time_zone: "Not/A_Zone" });
+  assert(invalid._resolvedTimeZone() === undefined, "invalid custom time zones should safely fall back to browser time");
+  assert(invalid._shortTime("2026-07-31T12:00:00Z") !== "--", "invalid custom time zones should not break timestamp rendering");
+  assert(createCard({ time_zone_mode: "invalid" })._config.time_zone_mode === "browser", "invalid time zone modes should normalize to browser");
 }
 
 {
