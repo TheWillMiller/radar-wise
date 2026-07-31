@@ -5,7 +5,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.13`
+**Latest release:** `v0.8.14`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -146,7 +146,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.13/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.14/radarwise-card.js
 type: module
 ```
 
@@ -164,6 +164,7 @@ theme_mode: radarwise
 units: auto
 layout: auto
 forecast_count: 5
+forecast_mode: auto
 hourly_count: 5
 latitude: 33.688
 longitude: -78.886
@@ -171,6 +172,19 @@ grid_options:
   rows: full
   columns: 18
 ```
+
+To prefer daily forecast cards and reduce the built-in weather details:
+
+```yaml
+forecast_mode: daily
+show_humidity: true
+show_dew_point: false
+show_wind: true
+show_sunrise: false
+show_sunset: false
+```
+
+The visual editor exposes the same choices. If a provider does not supply the preferred daily or twice-daily forecast type, RadarWise falls back automatically.
 
 ## Canada Example
 
@@ -287,13 +301,14 @@ RadarWise includes a Home Assistant visual editor. When adding the card from the
 - Choose United States, Canada, Australia, United Kingdom, or global/other setup
 - Choose automatic radar, NOAA radar, Environment Canada radar, BOM radar, RainViewer radar, or no radar
 - Choose radar timeline, style, map style, and radar loop speed
-- Set title, units, forecast counts, language, time format, font preset, and theme mode
+- Set title, units, forecast counts, forecast card frequency, language, time format, font preset, and theme mode
 - Choose card language: Auto, English, French, Spanish, German, Portuguese, or Dutch
 - Choose a layout preset with visual layout tiles
 - Drag panels to reorder clock/timeline, current weather, and radar
 - Adjust panel widths and choose when the card collapses to vertical layout
 - Show or hide the forecast summary
 - Show or hide the hourly/forecast list and daily forecast cards
+- Show or hide humidity, dew point, wind, sunrise, and sunset individually
 - Enable optional auto-scroll for long forecast lists
 - Enable or disable subtle weather animations
 - Set radar latitude/longitude and zoom
@@ -350,7 +365,13 @@ Radar location and map controls:
 | `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
+| `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. Auto preserves the existing twice-daily-first behavior; explicit choices fall back when unavailable. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
+| `show_humidity` | No | `true` | Show or hide the humidity detail tile. |
+| `show_dew_point` | No | `true` | Show or hide the dew-point detail tile. |
+| `show_wind` | No | `true` | Show or hide the wind detail tile. |
+| `show_sunrise` | No | `true` | Show or hide the sunrise detail tile. |
+| `show_sunset` | No | `true` | Show or hide the sunset detail tile. |
 | `show_environment` | No | `true` | Show or hide the optional AQI/pollen cluster beside the clock/date. |
 | `show_custom_sensors` | No | `true` | Show or hide optional custom sensor blocks below the weather detail stat row. |
 | `custom_sensors` | No | `[]` | Optional sensor detail blocks. Each item supports `entity`, `name`, `icon`, and `unit`. The visual editor exposes three slots; YAML supports up to six. |

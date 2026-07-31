@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.14
+
+### Added
+
+- Added a `forecast_mode` setting and visual-editor selector for automatic, daily, or twice-daily forecast cards.
+- Added individual visual-editor and YAML switches for humidity, dew point, wind, sunrise, and sunset detail tiles.
+- Added regression tests for forecast selection, provider fallbacks, configuration defaults, and detail-tile visibility.
+
+### Changed
+
+- Preserved existing dashboards with `forecast_mode: auto` and all built-in detail tiles visible by default.
+- Updated the frontend workflow to run the configuration behavior regression suite.
+
 ## 0.8.13
 
 ### Changed
