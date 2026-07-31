@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.12";
+const CARD_VERSION = "0.8.13";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];

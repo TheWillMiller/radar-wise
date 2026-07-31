@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.13
+
+### Changed
+
+- Confirmed the repository and package metadata use the MIT License with no separate commercial-use restrictions.
+- Removed the stale US-only HACS country restriction now that RadarWise supports Home Assistant weather entities and radar providers across multiple regions.
+- Refreshed release metadata and documentation for HACS default-catalog submission.
+
 ## 0.8.12
 
 ### Changed
