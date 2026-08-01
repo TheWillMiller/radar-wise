@@ -1,5 +1,9 @@
 # RadarWise
 
+<p align="center">
+  <img src="docs/radarwise-icon@2x.png" alt="RadarWise weather radar icon" width="160">
+</p>
+
 [![GitHub release](https://img.shields.io/github/v/release/TheWillMiller/radar-wise)](https://github.com/TheWillMiller/radar-wise/releases)
 [![Validate](https://img.shields.io/github/actions/workflow/status/TheWillMiller/radar-wise/validate.yml?branch=main&label=validate)](https://github.com/TheWillMiller/radar-wise/actions/workflows/validate.yml)
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
@@ -90,24 +94,17 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 
 ## Installation
 
-### Recommended: HACS Custom Repository
+### Recommended: HACS
 
 [![Open RadarWise in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TheWillMiller&repository=radar-wise&category=plugin)
 
-RadarWise is not yet listed in the default/searchable HACS store. Until it is accepted into the default HACS list, install it as a custom HACS repository.
+RadarWise is included in the default searchable HACS catalog.
 
 1. Open **HACS** in Home Assistant.
-2. Open the three-dot menu in the top right.
-3. Choose **Custom repositories**.
-4. Add this repository URL:
-
-```text
-https://github.com/TheWillMiller/radar-wise
-```
-
-5. For category, choose **Dashboard**.
-6. Install **RadarWise**.
-7. Refresh Home Assistant.
+2. Search for **RadarWise**.
+3. Open the RadarWise repository.
+4. Choose **Download**.
+5. Refresh Home Assistant.
 
 A hard browser refresh is recommended after installing or updating:
 
