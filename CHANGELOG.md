@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.16
+
+### Fixed
+
+- New cards now center radar on Home Assistant's configured home location instead of starting with the developer's example coordinates.
+- Explicit per-card latitude and longitude settings continue to override the Home Assistant location.
+
 ## 0.8.15
 
 ### Added

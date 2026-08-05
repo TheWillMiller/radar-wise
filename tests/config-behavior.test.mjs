@@ -79,6 +79,24 @@ function createCard(config = {}) {
 }
 
 {
+  const stub = RadarWiseCard.getStubConfig();
+  assert(!Object.hasOwn(stub, "latitude"), "new-card config should not override the Home Assistant latitude");
+  assert(!Object.hasOwn(stub, "longitude"), "new-card config should not override the Home Assistant longitude");
+
+  const homeLocationCard = createCard();
+  homeLocationCard._hass = { config: { latitude: 40.7128, longitude: -74.006 } };
+  const homeLocation = homeLocationCard._latLon();
+  assert(homeLocation.lat === 40.7128, "radar should default to the Home Assistant latitude");
+  assert(homeLocation.lon === -74.006, "radar should default to the Home Assistant longitude");
+
+  const overrideCard = createCard({ latitude: 34.0522, longitude: -118.2437 });
+  overrideCard._hass = { config: { latitude: 40.7128, longitude: -74.006 } };
+  const overrideLocation = overrideCard._latLon();
+  assert(overrideLocation.lat === 34.0522, "an explicit radar latitude should override the Home Assistant latitude");
+  assert(overrideLocation.lon === -118.2437, "an explicit radar longitude should override the Home Assistant longitude");
+}
+
+{
   const card = createCard();
   assert(card._config.forecast_mode === "auto", "forecast mode should default to auto");
   assert(card._config.time_zone_mode === "browser", "time zone mode should default to browser for backward compatibility");
