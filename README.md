@@ -9,7 +9,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.16`
+**Latest release:** `v0.8.17`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -144,7 +144,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.16/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.17/radarwise-card.js
 type: module
 ```
 
@@ -183,7 +183,7 @@ show_sunrise: false
 show_sunset: false
 ```
 
-The visual editor exposes the same choices. If a provider does not supply the preferred daily or twice-daily forecast type, RadarWise falls back automatically.
+The visual editor exposes the same choices. When Daily is selected and a provider such as the US National Weather Service supplies only day/night periods, RadarWise combines each local day's daytime high and nighttime low into one daily card. Other unavailable forecast types fall back automatically.
 
 To keep a card on the Home Assistant location time while the viewing device travels, or to give separate cards different time zones:
 
@@ -379,7 +379,7 @@ Radar location and map controls:
 | `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
-| `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. Auto preserves the existing twice-daily-first behavior; explicit choices fall back when unavailable. |
+| `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. Auto preserves the existing twice-daily-first behavior. Daily combines day/night periods when native daily data is unavailable. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_humidity` | No | `true` | Show or hide the humidity detail tile. |
 | `show_dew_point` | No | `true` | Show or hide the dew-point detail tile. |

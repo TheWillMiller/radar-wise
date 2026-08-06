@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.17
+
+### Fixed
+
+- Daily forecast mode now combines provider day/night periods into one card per local date when native daily forecasts are unavailable, including US National Weather Service entities.
+- Synthesized daily cards use the daytime high, nighttime low, daytime condition, and greatest precipitation probability while preserving native daily forecasts unchanged.
+
 ## 0.8.16
 
 ### Fixed
