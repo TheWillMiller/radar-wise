@@ -153,12 +153,59 @@ function createCard(config = {}) {
 {
   const hourly = [{ source: "hourly" }];
   const daily = [{ source: "daily" }];
-  const twiceDaily = [{ source: "twice_daily" }];
+  const twiceDaily = [
+    {
+      datetime: "2026-08-06T06:00:00-07:00",
+      is_daytime: true,
+      condition: "sunny",
+      temperature: 82,
+      precipitation_probability: 10
+    },
+    {
+      datetime: "2026-08-06T18:00:00-07:00",
+      is_daytime: false,
+      condition: "clear-night",
+      temperature: 63,
+      precipitation_probability: 40
+    },
+    {
+      datetime: "2026-08-07T06:00:00-07:00",
+      is_daytime: true,
+      condition: "partlycloudy",
+      temperature: 79,
+      precipitation_probability: 20
+    },
+    {
+      datetime: "2026-08-07T18:00:00-07:00",
+      is_daytime: false,
+      condition: "rainy",
+      temperature: 61,
+      precipitation_probability: 55
+    }
+  ];
 
   assert(createCard()._mainForecastPeriods(hourly, daily, twiceDaily) === twiceDaily, "auto mode should preserve twice-daily-first behavior");
   assert(createCard({ forecast_mode: "daily" })._mainForecastPeriods(hourly, daily, twiceDaily) === daily, "daily mode should prefer daily forecasts");
   assert(createCard({ forecast_mode: "twice_daily" })._mainForecastPeriods(hourly, daily, twiceDaily) === twiceDaily, "twice-daily mode should prefer twice-daily forecasts");
-  assert(createCard({ forecast_mode: "daily" })._mainForecastPeriods(hourly, [], twiceDaily) === twiceDaily, "daily mode should fall back to twice-daily forecasts");
+  const synthesized = createCard({
+    forecast_mode: "daily",
+    time_zone_mode: "custom",
+    time_zone: "America/Los_Angeles"
+  })._mainForecastPeriods(hourly, [], twiceDaily);
+  assert(synthesized.length === 2, `daily mode should combine day/night periods by local date, got ${synthesized.length}`);
+  assert(synthesized[0].temperature === 82 && synthesized[0].templow === 63, "combined daily periods should use the daytime high and nighttime low");
+  assert(synthesized[0].condition === "sunny", "combined daily periods should use the daytime condition");
+  assert(synthesized[0].precipitation_probability === 40, "combined daily periods should preserve the greatest precipitation chance");
+  assert(synthesized[0].is_daytime === undefined, "combined daily periods should not render day/night labels");
+  assert(synthesized[1].temperature === 79 && synthesized[1].templow === 61, "daily grouping should remain correct across UTC date boundaries");
+
+  const incomplete = createCard({
+    forecast_mode: "daily",
+    time_zone_mode: "custom",
+    time_zone: "America/Los_Angeles"
+  })._mainForecastPeriods(hourly, [], twiceDaily.slice(1));
+  assert(incomplete.length === 2, "daily mode should retain an incomplete leading night instead of dropping current forecast data");
+  assert(incomplete[0].temperature === 63 && incomplete[0].templow === undefined, "an incomplete night should remain usable without showing a misleading high/low range");
   assert(createCard({ forecast_mode: "invalid" })._config.forecast_mode === "auto", "invalid forecast modes should normalize to auto");
 }
 
