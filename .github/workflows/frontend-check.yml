@@ -18,6 +18,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify bundled card
+        run: npm run build:check
 
       - name: JavaScript syntax check
         run: npm run check

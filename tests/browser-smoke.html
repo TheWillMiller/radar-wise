@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>RadarWise browser smoke test</title>
+    <style>
+      #map { width: 320px; height: 180px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p id="status">Loading RadarWise...</p>
+      <div id="map"></div>
+    </main>
+    <script type="module">
+      import "../radarwise-card.js";
+
+      const card = document.createElement("radarwise-card");
+      await card._loadLeaflet();
+      const map = window.L.map(document.getElementById("map"), { attributionControl: false, zoomControl: false });
+      map.setView([33.688, -78.886], 6);
+      document.getElementById("status").textContent = `RadarWise ${window.customCards.at(-1).preview ? "preview " : ""}loaded with Leaflet ${window.L.version}`;
+      document.body.dataset.smoke = "passed";
+      map.remove();
+    </script>
+  </body>
+</html>

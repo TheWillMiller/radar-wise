@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.18
+
+### Changed
+
+- Bundled Leaflet 1.9.4 into the HACS card asset so radar no longer loads JavaScript or CSS from `unpkg.com` at runtime.
+
+### Fixed
+
+- Google Pollen states such as `Very Low` no longer get misclassified as `Very High` when selecting the strongest pollen source.
+- Google Pollen `index_value` attributes now use the provider's 0-5 Universal Pollen Index while generic numeric pollen sensors retain their existing concentration thresholds.
+
 ## 0.8.17
 
 ### Fixed

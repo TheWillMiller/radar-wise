@@ -231,4 +231,55 @@ function createCard(config = {}) {
   assert(!rendered.includes("Humidity") && !rendered.includes("Wind") && !rendered.includes("Sunset"), "disabled detail tiles should not render");
 }
 
+{
+  const card = createCard();
+  const expectedCategories = [
+    ["Very Low", "low", 1],
+    ["Low", "low", 1],
+    ["Moderate", "moderate", 2],
+    ["Medium", "moderate", 2],
+    ["High", "high", 3],
+    ["Very High", "veryHigh", 4],
+    ["very_high", "veryHigh", 4],
+    ["Extreme", "veryHigh", 4]
+  ];
+  for (const [value, key, rank] of expectedCategories) {
+    const severity = card._pollenSeverity(value);
+    assert(severity.key === key && severity.rank === rank, `${value} should map to ${key} pollen severity`);
+  }
+
+  assert(card._pollenSeverity("Very Low", 1).key === "low", "Google UPI 1 should map to low severity");
+  assert(card._pollenSeverity("Very Low", 3).key === "moderate", "Google UPI 3 should map to moderate severity");
+  assert(card._pollenSeverity("Very Low", 4).key === "high", "Google UPI 4 should map to high severity");
+  assert(card._pollenSeverity("Very Low", 5).key === "veryHigh", "Google UPI 5 should map to very-high severity");
+  assert(card._pollenSeverity(8).key === "veryHigh", "generic numeric pollen values should retain the concentration thresholds");
+}
+
+{
+  const card = createCard({
+    pollen_entity: "sensor.google_pollen",
+    tree_pollen_entity: "sensor.google_tree_pollen",
+    grass_pollen_entity: "sensor.google_grass_pollen"
+  });
+  card._hass = {
+    states: {
+      "sensor.google_pollen": { state: "Low", attributes: { friendly_name: "Google Pollen" } },
+      "sensor.google_tree_pollen": { state: "Very Low", attributes: { friendly_name: "Google Tree Pollen", index_value: 1 } },
+      "sensor.google_grass_pollen": { state: "Low", attributes: { friendly_name: "Google Grass Pollen", index_value: 2 } }
+    }
+  };
+
+  const lowTile = card._sensorPollenTile();
+  assert(lowTile.label === "Pollen", "a generic pollen entity should retain the summary label");
+  assert(lowTile.note === "Low" && lowTile.level === "good", "Very Low pollen should not create a false high-pollen warning");
+
+  card._hass.states["sensor.google_tree_pollen"] = {
+    state: "Very Low",
+    attributes: { friendly_name: "Google Tree Pollen", index_value: 4 }
+  };
+  const highTile = card._sensorPollenTile();
+  assert(highTile.note === "Tree Pollen: High", "Google UPI should identify the strongest pollen source from index_value");
+  assert(highTile.level === "unhealthy", "Google UPI 4 should apply the high-pollen tile level");
+}
+
 console.log("RadarWise configuration behavior tests passed");

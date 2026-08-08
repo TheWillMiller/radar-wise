@@ -1,6 +1,6 @@
 {
   "name": "radarwise-card",
-  "version": "0.8.17",
+  "version": "0.8.18",
   "description": "Radar-forward weather dashboard custom card for Home Assistant with forecasts and alerts.",
   "type": "module",
   "files": [
@@ -12,7 +12,9 @@
     "examples"
   ],
   "scripts": {
-    "check": "node --check radarwise-card.js && node --check weatherwise-card.js",
+    "build": "esbuild src/radarwise-card.js --bundle --format=esm --platform=browser --target=es2020 --outfile=radarwise-card.js --legal-comments=inline",
+    "build:check": "npm run build && git diff --exit-code -- radarwise-card.js",
+    "check": "node --check src/radarwise-card.js && node --check radarwise-card.js && node --check weatherwise-card.js",
     "test": "node tests/config-behavior.test.mjs"
   },
   "keywords": [
@@ -30,5 +32,9 @@
     "rainviewer"
   ],
   "license": "MIT",
-  "private": false
+  "private": false,
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "leaflet": "1.9.4"
+  }
 }

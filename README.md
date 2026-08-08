@@ -9,7 +9,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.17`
+**Latest release:** `v0.8.18`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -35,7 +35,7 @@ RadarWise gets weather data from an existing Home Assistant `weather` entity, so
 
 RadarWise does not ask for, store, or call private weather API keys from dashboard YAML. Open-Meteo can provide no-key AQI, UV index, and pollen environment data, but radar imagery still comes from the selected radar provider.
 
-Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses native Bureau of Meteorology WMTS radar tiles and BOM basemap tiles, with no API key required. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits.
+Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses native Bureau of Meteorology WMTS radar tiles and BOM basemap tiles, with no API key required. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits. Leaflet 1.9.4 is bundled into the card, so the map does not load its JavaScript or CSS from a third-party CDN at runtime.
 
 ### Testing Outside the US, Canada, Australia, and UK
 
@@ -144,7 +144,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.17/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.18/radarwise-card.js
 type: module
 ```
 
@@ -513,15 +513,19 @@ MIT License.
 
 ## Development
 
-The distributable card is:
+The editable card source and generated HACS asset are:
 
 ```text
+src/radarwise-card.js
 radarwise-card.js
 ```
 
-Run the local syntax check before opening a pull request:
+Install the pinned development dependencies, rebuild the self-contained card, and run the checks before opening a pull request:
 
 ```bash
+npm ci
+npm run build
+npm test
 npm run check
 ```
 
