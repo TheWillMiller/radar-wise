@@ -214,6 +214,16 @@ function createCard(config = {}) {
   assert(createCard({ theme_mode: "dark" })._config.theme_mode === "dark", "RadarWise Dark theme should normalize correctly");
   assert(createCard({ theme_mode: "invalid" })._config.theme_mode === "radarwise", "invalid theme modes should normalize to RadarWise");
   assert(createCard({ theme_mode: "dark" })._styles().includes(':host([theme-mode="dark"])'), "RadarWise Dark should provide dedicated card styles");
+
+  const basemaps = ["light", "dark", "osm"].map((kind) => createCard({ radar_basemap: kind })._basemap());
+  assert(basemaps.every(({ url }) => url === "https://tile.openstreetmap.org/{z}/{x}/{y}.png"), "all non-BOM basemaps should use the keyless OpenStreetMap tile endpoint");
+  assert(basemaps.every(({ url }) => !url.includes("cartocdn.com")), "basemaps must not use CARTO's API-key-watermarked raster endpoint");
+  assert(basemaps.every(({ options }) => options.crossOrigin === true && options.attribution.includes("OpenStreetMap contributors")), "OpenStreetMap basemaps should retain browser-safe loading and visible attribution");
+  assert(basemaps[0].options.className.includes("basemap-light"), "light basemap should receive the local RadarWise light treatment");
+  assert(basemaps[1].options.className.includes("basemap-dark"), "dark basemap should receive the local RadarWise dark treatment");
+  const basemapStyles = createCard()._styles();
+  assert(basemapStyles.includes(".leaflet-layer.radarwise-basemap-light"), "card styles should include the local light basemap treatment");
+  assert(basemapStyles.includes(".leaflet-layer.radarwise-basemap-dark"), "card styles should include the local dark basemap treatment");
 }
 
 {

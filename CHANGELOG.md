@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.20
+
+### Fixed
+
+- Replaced CARTO's newly API-key-gated raster basemaps with OpenStreetMap's standard interactive tile endpoint, removing the repeated `API KEY REQUIRED` watermark without requiring user configuration.
+- Preserved RadarWise's light, dark, and standard street-map choices with local visual treatments and visible OpenStreetMap attribution.
+- Added regression and browser-smoke coverage for the basemap provider, attribution, style variants, and successful live tile loading.
+
 ## 0.8.19
 
 ### Added

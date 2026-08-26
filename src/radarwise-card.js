@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.19";
+const CARD_VERSION = "0.8.20";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -3206,18 +3206,24 @@ class RadarWiseCard extends HTMLElement {
   }
 
   _basemap(kind = this._config.radar_basemap) {
+    const url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+    const options = {
+      maxZoom: 19,
+      crossOrigin: true,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    };
     const basemaps = {
       dark: {
-        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        options: { subdomains: "abcd", maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+        url,
+        options: { ...options, className: "radarwise-basemap radarwise-basemap-dark" }
       },
       osm: {
-        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        options: { subdomains: "abcd", maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+        url,
+        options: { ...options, className: "radarwise-basemap radarwise-basemap-osm" }
       },
       light: {
-        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        options: { subdomains: "abcd", maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" }
+        url,
+        options: { ...options, className: "radarwise-basemap radarwise-basemap-light" }
       }
     };
     return basemaps[kind] || basemaps.light;
@@ -3910,6 +3916,8 @@ class RadarWiseCard extends HTMLElement {
       .leaflet-container img.leaflet-tile,.leaflet-container img.leaflet-image-layer{max-width:none!important;max-height:none!important}
       .leaflet-tile{filter:inherit;visibility:hidden}
       .leaflet-tile-loaded{visibility:inherit}
+      .leaflet-layer.radarwise-basemap-light{filter:grayscale(.38) saturate(.72) brightness(1.08) contrast(.92)}
+      .leaflet-layer.radarwise-basemap-dark{filter:invert(1) hue-rotate(180deg) brightness(.72) contrast(.92) saturate(.65)}
       .leaflet-map-pane canvas{z-index:100}
       .leaflet-map-pane svg{z-index:200}
       .leaflet-tile-pane{z-index:200}
