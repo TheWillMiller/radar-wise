@@ -19,7 +19,34 @@
       await card._loadLeaflet();
       const map = window.L.map(document.getElementById("map"), { attributionControl: false, zoomControl: false });
       map.setView([33.688, -78.886], 6);
-      document.getElementById("status").textContent = `RadarWise ${window.customCards.at(-1).preview ? "preview " : ""}loaded with Leaflet ${window.L.version}`;
+      card.setConfig({
+        type: "custom:radarwise-card",
+        entity: "weather.home",
+        theme_mode: "dark",
+        content_mode: "essentials",
+        show_environment: false,
+        show_radar: false
+      });
+      document.body.append(card);
+      card.hass = {
+        states: {
+          "weather.home": {
+            state: "partlycloudy",
+            last_updated: new Date().toISOString(),
+            attributes: { temperature: 72, supported_features: 3 }
+          }
+        },
+        config: { latitude: 33.688, longitude: -78.886 },
+        locale: { language: "en" },
+        connection: { sendMessagePromise: async () => ({}) }
+      };
+      await Promise.resolve();
+      const darkText = getComputedStyle(card).getPropertyValue("--ww-text").trim();
+      const darkBackground = getComputedStyle(card.shadowRoot.querySelector(".card-outer")).backgroundImage;
+      if (darkText !== "#f3f4f6" || !darkBackground.includes("linear-gradient")) {
+        throw new Error(`RadarWise Dark did not render correctly: text=${darkText}, background=${darkBackground}`);
+      }
+      document.getElementById("status").textContent = `RadarWise ${window.customCards.at(-1).preview ? "preview " : ""}loaded with Leaflet ${window.L.version} and RadarWise Dark`;
       document.body.dataset.smoke = "passed";
       map.remove();
     </script>

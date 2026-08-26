@@ -9583,7 +9583,7 @@ var require_leaflet_src = __commonJS({
 });
 
 // src/radarwise-card.js
-var CARD_VERSION = "0.8.18";
+var CARD_VERSION = "0.8.19";
 var FORECAST_REFRESH_MS = 15 * 60 * 1e3;
 var ENVIRONMENT_REFRESH_MS = 60 * 60 * 1e3;
 var CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
