@@ -62,11 +62,14 @@ function assert(condition, message) {
 
   editor._setValue("forecast_mode", "daily");
   assert(editor._config.forecast_mode === "daily", "editor should store the forecast-card preference");
+  editor._setValue("theme_mode", "dark");
+  assert(editor._config.theme_mode === "dark", "editor should store the RadarWise Dark theme preference");
   editor._setValue("time_zone_mode", "custom");
   editor._setValue("time_zone", "America/Toronto");
   assert(editor._config.time_zone_mode === "custom", "editor should store the time zone source");
   assert(editor._config.time_zone === "America/Toronto", "editor should store the custom IANA time zone");
   assert(editor.shadowRoot.innerHTML.includes('id="forecast_mode"'), "visual editor should render the forecast mode selector");
+  assert(editor.shadowRoot.innerHTML.includes('value="dark"'), "visual editor should render the RadarWise Dark theme option");
   assert(editor.shadowRoot.innerHTML.includes('id="time_zone_mode"'), "visual editor should render the time zone source selector");
   assert(editor.shadowRoot.innerHTML.includes('id="time_zone"'), "visual editor should render the custom time zone input");
   assert(editor.shadowRoot.innerHTML.includes('id="show_humidity"'), "visual editor should render the built-in detail switches");
@@ -99,6 +102,7 @@ function createCard(config = {}) {
 {
   const card = createCard();
   assert(card._config.forecast_mode === "auto", "forecast mode should default to auto");
+  assert(card._config.theme_mode === "radarwise", "theme mode should default to RadarWise");
   assert(card._config.time_zone_mode === "browser", "time zone mode should default to browser for backward compatibility");
   assert(card._config.time_zone === "", "custom time zone should default to blank");
   for (const key of ["show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset"]) {
@@ -207,6 +211,45 @@ function createCard(config = {}) {
   assert(incomplete.length === 2, "daily mode should retain an incomplete leading night instead of dropping current forecast data");
   assert(incomplete[0].temperature === 63 && incomplete[0].templow === undefined, "an incomplete night should remain usable without showing a misleading high/low range");
   assert(createCard({ forecast_mode: "invalid" })._config.forecast_mode === "auto", "invalid forecast modes should normalize to auto");
+  assert(createCard({ theme_mode: "dark" })._config.theme_mode === "dark", "RadarWise Dark theme should normalize correctly");
+  assert(createCard({ theme_mode: "invalid" })._config.theme_mode === "radarwise", "invalid theme modes should normalize to RadarWise");
+  assert(createCard({ theme_mode: "dark" })._styles().includes(':host([theme-mode="dark"])'), "RadarWise Dark should provide dedicated card styles");
+}
+
+{
+  const requested = [];
+  const card = createCard({ forecast_mode: "daily" });
+  card._render = () => {};
+  card._hass = {
+    states: {
+      "weather.forecast_home": { attributes: { supported_features: 3 } }
+    },
+    connection: {
+      sendMessagePromise: async (message) => {
+        requested.push(message.service_data.type);
+        return { service_response: { "weather.forecast_home": { forecast: [] } } };
+      }
+    }
+  };
+
+  assert(card._forecastTypesToLoad("weather.forecast_home").join(",") === "hourly,daily", "daily mode should only select advertised hourly and daily forecasts");
+  await card._loadForecasts("weather.forecast_home");
+  assert(requested.includes("hourly") && requested.includes("daily"), "daily mode should request the forecast types needed by the card");
+  assert(!requested.includes("twice_daily"), "daily mode must not call twice-daily forecasts when the entity advertises daily and hourly only");
+  assert(card._forecasts.twice_daily.length === 0, "unrequested forecast types should remain empty arrays");
+}
+
+{
+  const card = createCard({ forecast_mode: "auto" });
+  assert(card._forecastTypesToLoad("weather.forecast_home").join(",") === "hourly,daily,twice_daily", "auto mode should preserve all forecast fallbacks when capability metadata is unavailable");
+  card._hass = { states: { "weather.forecast_home": { attributes: { supported_features: 3 } } } };
+  assert(card._forecastTypesToLoad("weather.forecast_home").join(",") === "hourly,daily", "auto mode should not request forecast types absent from supported_features");
+}
+
+{
+  const dailyCard = createCard({ forecast_mode: "daily" });
+  dailyCard._hass = { states: { "weather.forecast_home": { attributes: { supported_features: 6 } } } };
+  assert(dailyCard._forecastTypesToLoad("weather.forecast_home").join(",") === "hourly,twice_daily", "daily mode should use a supported twice-daily source when native daily forecasts are unavailable");
 }
 
 {

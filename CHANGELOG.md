@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added a neutral `theme_mode: dark` palette alongside the built-in light palette and Home Assistant theme matching.
+
+### Fixed
+
+- Forecast loading now respects Home Assistant weather `supported_features`, so explicit daily mode no longer probes unsupported twice-daily forecasts or fills the system log with avoidable service-call errors.
+- Added regression coverage for capability-filtered forecast requests, explicit daily mode, theme normalization, and the visual editor theme selector.
+
 ## 0.8.18
 
 ### Changed

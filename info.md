@@ -10,6 +10,8 @@ If you are testing from New Zealand, Europe, or another region, please report wh
 
 RadarWise is a public release. Weather provider behavior varies by region, so please report provider-specific layout, radar, or forecast quirks.
 
+The card includes built-in light and neutral dark themes, plus a mode that follows Home Assistant theme variables. Forecast requests respect the weather entity's advertised daily, hourly, and twice-daily capabilities.
+
 AQI, UV index, and pollen can use Home Assistant sensors/helpers or RadarWise's optional Open-Meteo source. Open-Meteo mode does not require an API key and uses the configured latitude/longitude.
 
 ## Support

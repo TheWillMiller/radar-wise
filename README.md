@@ -74,7 +74,8 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Fahrenheit and Celsius support
 - Card language support for Auto, English, French, Spanish, German, Portuguese, and Dutch
 - Per-card browser, Home Assistant location, or custom IANA time zone
-- RadarWise built-in theme mode
+- RadarWise built-in light theme mode
+- Neutral RadarWise Dark theme mode
 - Home Assistant theme-aware mode with `theme_mode: auto`
 - Layout presets: auto, wide panel, stacked, radar bottom, and compact
 - Content focus presets: full dashboard, essentials, forecast only, hourly only, radar only, and custom
@@ -286,19 +287,25 @@ Each item supports `entity`, `name`, `icon`, and `unit`. If `name`, `icon`, or `
 
 ## Theme Support
 
-RadarWise defaults to its built-in glass styling:
+RadarWise defaults to its built-in light glass styling:
 
 ```yaml
 theme_mode: radarwise
 ```
 
-To make the card follow Home Assistant theme colors more closely, use:
+For a neutral dark palette that does not inherit a dashboard's accent or background colors, use:
+
+```yaml
+theme_mode: dark
+```
+
+To make the card follow Home Assistant theme colors, use:
 
 ```yaml
 theme_mode: auto
 ```
 
-The visual editor includes a **Theme** dropdown for this setting.
+The visual editor includes a **Theme** dropdown with RadarWise, RadarWise Dark, and Match Home Assistant theme. Theme mode controls the card styling; `radar_basemap` separately controls the map tiles.
 
 ## Visual Editor
 
@@ -365,7 +372,7 @@ Radar location and map controls:
 | `title` | No | `Local Weather` | Card title. |
 | `country` | No | `us` | Region hint: `us`, `ca`, `au`, `uk`, or `global`. |
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `bom`, `rainviewer`, or `none`. |
-| `theme_mode` | No | `radarwise` | `radarwise` or `auto`. |
+| `theme_mode` | No | `radarwise` | `radarwise`, `dark`, or `auto`. `dark` uses RadarWise's neutral dark palette; `auto` follows Home Assistant theme variables. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, or `nl`. Auto follows Home Assistant/browser language when possible. |
 | `time_format` | No | `auto` | Clock and timestamp format: `auto`, `12`, or `24`. Auto follows the Home Assistant time setting or browser locale when possible. |
@@ -379,7 +386,7 @@ Radar location and map controls:
 | `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
-| `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. Auto preserves the existing twice-daily-first behavior. Daily combines day/night periods when native daily data is unavailable. |
+| `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. RadarWise uses the weather entity's `supported_features` to avoid requesting unsupported forecast types. Auto preserves the existing twice-daily-first behavior; daily combines day/night periods when a supported native daily forecast is unavailable. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_humidity` | No | `true` | Show or hide the humidity detail tile. |
 | `show_dew_point` | No | `true` | Show or hide the dew-point detail tile. |
