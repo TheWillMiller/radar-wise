@@ -59,6 +59,17 @@
       if (darkText !== "#f3f4f6" || !darkBackground.includes("linear-gradient")) {
         throw new Error(`RadarWise Dark did not render correctly: text=${darkText}, background=${darkBackground}`);
       }
+      const currentIcon = card.shadowRoot.querySelector(".current-icon svg");
+      if (!currentIcon || currentIcon.getAttribute("viewBox") !== "0 0 64 64" || !currentIcon.classList.contains("ww-partly")) {
+        throw new Error("The refreshed partly-cloudy weather artwork did not render");
+      }
+      if (currentIcon.querySelector("text, ellipse")) {
+        throw new Error("The refreshed weather artwork regressed to text glyphs or flat ellipse clip art");
+      }
+      const cloudAnimation = getComputedStyle(currentIcon.querySelector(".ww-cloud")).animationName;
+      if (cloudAnimation !== "ww-cloud-drift") {
+        throw new Error(`The subtle cloud animation did not activate: ${cloudAnimation}`);
+      }
       const tileHosts = [...previewRoot.querySelectorAll("img.leaflet-tile")].map((tile) => new URL(tile.src).hostname);
       if (!tileHosts.length || tileHosts.some((host) => host !== "tile.openstreetmap.org")) {
         throw new Error(`Unexpected basemap tile host: ${tileHosts.join(", ") || "none"}`);

@@ -224,6 +224,38 @@ function createCard(config = {}) {
   const basemapStyles = createCard()._styles();
   assert(basemapStyles.includes(".leaflet-layer.radarwise-basemap-light"), "card styles should include the local light basemap treatment");
   assert(basemapStyles.includes(".leaflet-layer.radarwise-basemap-dark"), "card styles should include the local dark basemap treatment");
+
+  const iconCard = createCard();
+  const iconCases = {
+    sunny: "ww-sunny",
+    "clear-night": "ww-clear-night",
+    partlycloudy: "ww-partly",
+    "partly-cloudy-night": "ww-partly-night",
+    cloudy: "ww-cloudy",
+    rainy: "ww-rainy",
+    pouring: "ww-pouring",
+    "lightning-rainy": "ww-thunder",
+    snowy: "ww-snowy",
+    "snowy-rainy": "ww-wintry",
+    hail: "ww-hail",
+    fog: "ww-foggy",
+    windy: "ww-windy",
+    exceptional: "ww-exceptional"
+  };
+  const iconMarkup = Object.entries(iconCases).map(([condition, expectedClass]) => {
+    const markup = iconCard._icon(condition, 32);
+    assert(markup.includes(`class="ww-icon ${expectedClass}"`), `${condition} should render its dedicated weather artwork`);
+    assert(markup.includes('viewBox="0 0 64 64"') && markup.includes('aria-hidden="true"'), `${condition} icon should be scalable and decorative`);
+    assert(!markup.includes("<text") && !markup.includes("<ellipse"), `${condition} icon should use the refined vector paths instead of text glyphs or flat ellipse clip art`);
+    return markup;
+  });
+  const iconIds = iconMarkup.map((markup) => markup.match(/id="(wwi-\d+)-sun"/)?.[1]);
+  assert(iconIds.every(Boolean) && new Set(iconIds).size === iconIds.length, "inline weather icons should use unique SVG definition IDs");
+  const animationStyles = iconCard._styles();
+  ["ww-sun-spin", "ww-cloud-drift", "ww-rain-fall", "ww-snow-float", "ww-bolt-flash", "ww-moon-float", "ww-fog-slide", "ww-wind-pulse"].forEach((animation) => {
+    assert(animationStyles.includes(animation), `weather icon styles should include ${animation}`);
+  });
+  assert(animationStyles.includes("prefers-reduced-motion:reduce") && animationStyles.includes(".ww-wind"), "all weather motion, including wind, should respect reduced-motion preferences");
 }
 
 {

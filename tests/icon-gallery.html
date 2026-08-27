@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>RadarWise weather icon gallery</title>
+    <style>
+      body { margin: 0; padding: 24px; background: #dbeef4; font-family: Inter, system-ui, sans-serif; }
+      .gallery-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .preview { min-width: 0; }
+      @media (max-width: 900px) { .gallery-pair { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main class="gallery-pair" id="galleries"></main>
+    <script type="module">
+      import "../radarwise-card.js";
+
+      const conditions = [
+        ["sunny", "Sunny"],
+        ["clear-night", "Clear night"],
+        ["partlycloudy", "Partly cloudy"],
+        ["partly-cloudy-night", "Partly cloudy night"],
+        ["cloudy", "Cloudy"],
+        ["rainy", "Rain"],
+        ["pouring", "Heavy rain"],
+        ["lightning-rainy", "Thunderstorm"],
+        ["snowy", "Snow"],
+        ["snowy-rainy", "Wintry mix"],
+        ["hail", "Hail"],
+        ["fog", "Fog"],
+        ["windy", "Wind"],
+        ["exceptional", "Exceptional"]
+      ];
+
+      for (const theme of ["radarwise", "dark"]) {
+        const card = document.createElement("radarwise-card");
+        card.setConfig({ type: "custom:radarwise-card", entity: "weather.home", theme_mode: theme });
+        const host = document.createElement("section");
+        host.className = "preview";
+        host.setAttribute("theme-mode", theme);
+        host.setAttribute("animations", "");
+        const root = host.attachShadow({ mode: "open" });
+        root.innerHTML = `
+          <style>
+            ${card._styles()}
+            .sheet{padding:22px;border-radius:22px;background:${theme === "dark" ? "linear-gradient(135deg,#172033,#111827)" : "rgba(248,253,255,.94)"};border:1px solid var(--ww-line);color:var(--ww-text);box-shadow:0 12px 30px rgba(15,40,55,.12)}
+            h2{margin:0 0 18px;font-size:20px}
+            .grid{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:12px}
+            .tile{min-height:120px;display:grid;place-items:center;align-content:center;gap:5px;border:1px solid var(--ww-line);border-radius:16px;background:var(--ww-panel)}
+            .tile svg{width:72px;height:72px}
+            .label{font-size:12px;font-weight:850;color:var(--ww-muted);text-align:center}
+            .small{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ww-muted)}
+            .small svg{width:26px;height:26px}
+            @media(max-width:620px){.grid{grid-template-columns:repeat(2,minmax(100px,1fr))}}
+          </style>
+          <div class="sheet">
+            <h2>${theme === "dark" ? "RadarWise Dark" : "RadarWise"}</h2>
+            <div class="grid">
+              ${conditions.map(([condition, label]) => `<div class="tile">${card._icon(condition, 72)}<div class="label">${label}</div><div class="small">${card._icon(condition, 26)}26 px</div></div>`).join("")}
+            </div>
+          </div>`;
+        document.getElementById("galleries").append(host);
+      }
+
+      const icons = [...document.querySelectorAll(".preview")].flatMap((host) => [...host.shadowRoot.querySelectorAll("svg.ww-icon")]);
+      if (icons.length !== conditions.length * 4 || icons.some((icon) => icon.querySelector("text"))) {
+        throw new Error("Weather icon gallery did not render the complete vector icon set");
+      }
+      document.body.dataset.smoke = "passed";
+    </script>
+  </body>
+</html>

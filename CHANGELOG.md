@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.21
+
+### Added
+
+- Replaced the original flat weather symbols with a cohesive, hand-built inline SVG icon system featuring sculpted clouds, refined sun and moon lighting, true vector snowflakes, and dedicated artwork for heavy rain, thunderstorms, hail, wintry mix, fog, wind, and exceptional conditions.
+- Added a light/dark icon gallery for visual regression review at full and compact forecast sizes.
+
+### Changed
+
+- Refined the optional weather motion with slow sun rotation, gentle cloud and moon movement, concise rain and snow motion, drifting fog, moving wind, and occasional lightning while continuing to honor `prefers-reduced-motion` and `show_animations: false`.
+
 ## 0.8.20
 
 ### Fixed
