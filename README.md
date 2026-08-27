@@ -5,6 +5,8 @@
 </p>
 
 [![GitHub release](https://img.shields.io/github/v/release/TheWillMiller/radar-wise)](https://github.com/TheWillMiller/radar-wise/releases)
+[![Total release downloads](https://img.shields.io/github/downloads/TheWillMiller/radar-wise/total?label=total%20downloads)](https://github.com/TheWillMiller/radar-wise/releases)
+[![Current release downloads](https://img.shields.io/github/downloads/TheWillMiller/radar-wise/latest/total?label=current%20release)](https://github.com/TheWillMiller/radar-wise/releases/latest)
 [![Validate](https://img.shields.io/github/actions/workflow/status/TheWillMiller/radar-wise/validate.yml?branch=main&label=validate)](https://github.com/TheWillMiller/radar-wise/actions/workflows/validate.yml)
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
@@ -13,13 +15,19 @@
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
-![RadarWise dashboard preview](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/preview.png)
+## Screenshots
 
-![RadarWise visual editor layout controls](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/editor-display-layout.png)
+### RadarWise
 
-![RadarWise radar alert popup](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/radar-alert-popup.png)
+![RadarWise dashboard preview with refreshed animated weather artwork](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/preview.png)
+
+### RadarWise Dark
+
+![RadarWise Dark dashboard preview](https://raw.githubusercontent.com/TheWillMiller/radar-wise/main/docs/preview-dark.png)
 
 > **Public release note:** RadarWise is ready for regular use, but weather providers vary by region. Please report provider-specific layout, radar, or forecast quirks so support can keep improving.
+
+The download badges count GitHub release-asset downloads, including downloads made through HACS and direct manual downloads. They are not a count of unique Home Assistant installations.
 
 ## Region Support
 

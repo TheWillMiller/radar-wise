@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>RadarWise README preview</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        background:
+          linear-gradient(145deg, rgba(10, 30, 40, .22), rgba(42, 122, 148, .08)),
+          radial-gradient(circle at 20% 0%, #bfe4ee, transparent 42%),
+          #8fb4bf;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      .capture {
+        padding: 12px;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, .18);
+        box-shadow: 0 24px 70px rgba(8, 31, 42, .25);
+      }
+      #light-capture { width: 1720px; }
+      #dark-capture { width: 1720px; margin-top: 32px; }
+      body.single #dark-capture { margin-top: 0; }
+      radarwise-card { display: block; width: 100%; }
+    </style>
+  </head>
+  <body>
+    <section class="capture" id="light-capture"></section>
+    <section class="capture" id="dark-capture"></section>
+
+    <script type="module">
+      import "../radarwise-card.js";
+
+      if (!customElements.get("ha-card")) customElements.define("ha-card", class extends HTMLElement {});
+      if (!customElements.get("ha-icon")) customElements.define("ha-icon", class extends HTMLElement {});
+
+      const now = new Date();
+      const atHour = (offset) => new Date(now.getTime() + offset * 60 * 60 * 1000).toISOString();
+      const atDay = (offset) => new Date(now.getTime() + offset * 24 * 60 * 60 * 1000).toISOString();
+      const hourlyConditions = ["partlycloudy", "cloudy", "rainy", "lightning-rainy", "partlycloudy"];
+      const dailyConditions = ["partlycloudy", "rainy", "lightning-rainy", "cloudy", "sunny"];
+      const hourly = hourlyConditions.map((condition, index) => ({
+        datetime: atHour(index + 1),
+        condition,
+        temperature: 80 + index * 2,
+        precipitation_probability: [8, 18, 42, 58, 20][index],
+        uv_index: [2.4, 3.8, 4.5, 3.1, 1.8][index]
+      }));
+      const daily = dailyConditions.map((condition, index) => ({
+        datetime: atDay(index),
+        condition,
+        temperature: [86, 84, 82, 85, 89][index],
+        templow: [74, 72, 71, 70, 73][index],
+        precipitation_probability: [18, 54, 68, 28, 9][index]
+      }));
+
+      const hass = {
+        states: {
+          "weather.home": {
+            state: "partlycloudy",
+            last_updated: now.toISOString(),
+            attributes: {
+              temperature: 79,
+              temperature_unit: "°F",
+              humidity: 74,
+              dew_point: 69,
+              wind_speed: 8,
+              wind_bearing: 225,
+              supported_features: 3
+            }
+          },
+          "sensor.home_air_quality": { state: "42", attributes: { unit_of_measurement: "US AQI" } },
+          "sensor.home_pollen": { state: "1.2", attributes: { unit_of_measurement: "grains/m³" } },
+          "sensor.home_uv_index": { state: "3.1", attributes: {} },
+          "sun.sun": {
+            state: "above_horizon",
+            attributes: {
+              elevation: 35,
+              next_rising: atHour(13),
+              next_setting: atHour(1.5)
+            }
+          }
+        },
+        config: {
+          latitude: 33.689,
+          longitude: -78.887,
+          unit_system: { temperature: "°F", length: "mi", wind_speed: "mph", accumulated_precipitation: "in" }
+        },
+        locale: { language: "en", time_format: "am_pm" },
+        connection: { sendMessagePromise: async () => ({}) }
+      };
+
+      function createPreview(targetId, theme, showRadar) {
+        const card = document.createElement("radarwise-card");
+        card.setConfig({
+          type: "custom:radarwise-card",
+          entity: "weather.home",
+          title: "Coastal Weather",
+          country: "us",
+          radar_provider: showRadar ? "noaa" : "none",
+          radar_basemap: theme === "dark" ? "dark" : "light",
+          show_radar: showRadar,
+          show_warning_overlay: false,
+          show_map_controls: true,
+          radar_controls: true,
+          show_environment: true,
+          environment_source: "sensors",
+          air_quality_entity: "sensor.home_air_quality",
+          pollen_entity: "sensor.home_pollen",
+          uv_index_entity: "sensor.home_uv_index",
+          theme_mode: theme,
+          hourly_count: 5,
+          forecast_count: 5,
+          forecast_mode: "daily",
+          card_height: 450,
+          card_max_height: 450,
+          show_animations: true,
+          latitude: 33.689,
+          longitude: -78.887,
+          radar_zoom: 7
+        });
+        card._forecastEntity = "weather.home";
+        card._forecasts = { hourly, daily, twice_daily: [] };
+        card._lastForecastLoad = Date.now();
+        card.hass = hass;
+        document.getElementById(targetId).append(card);
+        card.shadowRoot.querySelector("style").textContent += "ha-card{display:block}";
+        return card;
+      }
+
+      const requestedTheme = new URLSearchParams(location.search).get("theme");
+      if (requestedTheme === "light") document.getElementById("dark-capture").remove();
+      if (requestedTheme === "dark") document.getElementById("light-capture").remove();
+      if (requestedTheme) document.body.classList.add("single");
+      const lightCard = requestedTheme === "dark" ? null : createPreview("light-capture", "radarwise", true);
+      const darkCard = requestedTheme === "light" ? null : createPreview("dark-capture", "dark", true);
+      window.readmePreview = { lightCard, darkCard };
+      document.body.dataset.ready = "true";
+    </script>
+  </body>
+</html>
