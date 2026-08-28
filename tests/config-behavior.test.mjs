@@ -219,6 +219,7 @@ function createCard(config = {}) {
   assert(basemaps.every(({ url }) => url === "https://tile.openstreetmap.org/{z}/{x}/{y}.png"), "all non-BOM basemaps should use the keyless OpenStreetMap tile endpoint");
   assert(basemaps.every(({ url }) => !url.includes("cartocdn.com")), "basemaps must not use CARTO's API-key-watermarked raster endpoint");
   assert(basemaps.every(({ options }) => options.crossOrigin === true && options.attribution.includes("OpenStreetMap contributors")), "OpenStreetMap basemaps should retain browser-safe loading and visible attribution");
+  assert(basemaps.every(({ options }) => options.referrerPolicy === "origin"), "OpenStreetMap basemaps should override Home Assistant's no-referrer policy with an origin-only referrer");
   assert(basemaps[0].options.className.includes("basemap-light"), "light basemap should receive the local RadarWise light treatment");
   assert(basemaps[1].options.className.includes("basemap-dark"), "dark basemap should receive the local RadarWise dark treatment");
   const basemapStyles = createCard()._styles();

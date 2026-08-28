@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.22
+
+### Fixed
+
+- Prevented OpenStreetMap's blocked-tile message in Home Assistant by applying an origin-only referrer policy to basemap requests. This satisfies OpenStreetMap's usage policy without sending the dashboard path.
+- Added regression and live browser coverage that reproduces Home Assistant's global `no-referrer` policy and verifies that Leaflet applies the corrected policy to tile images.
+
 ## 0.8.21
 
 ### Added

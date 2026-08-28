@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.21";
+const CARD_VERSION = "0.8.22";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -3210,6 +3210,10 @@ class RadarWiseCard extends HTMLElement {
     const options = {
       maxZoom: 19,
       crossOrigin: true,
+      // Home Assistant sends `Referrer-Policy: no-referrer`, while the OSM
+      // tile service requires a referrer. Send only the HA origin so tiles
+      // remain policy-compliant without exposing a dashboard path.
+      referrerPolicy: "origin",
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
     };
     const basemaps = {

@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.21`
+**Latest release:** `v0.8.22`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -154,7 +154,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.21/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.22/radarwise-card.js
 type: module
 ```
 
@@ -417,7 +417,7 @@ Radar location and map controls:
 | `radar_controls` | No | `true` | Show or hide radar playback controls. |
 | `radar_timeline` | No | `loop` | `loop`, `latest`, or `future`. Future frames are used only when the selected radar provider exposes them. BOM uses observed recent frames for `loop` and `latest`. |
 | `radar_style` | No | `standard` | Radar overlay style: `standard`, `vivid`, or `soft`. |
-| `radar_basemap` | No | `light` | Map style: `light`, `dark`, or `osm`. Non-BOM maps use OpenStreetMap's standard interactive tiles with visible attribution; RadarWise applies its light and dark treatments locally, so no basemap API key is required. BOM radar uses BOM-native light/dark map tiles. |
+| `radar_basemap` | No | `light` | Map style: `light`, `dark`, or `osm`. Non-BOM maps use OpenStreetMap's standard interactive tiles with visible attribution and an origin-only referrer required by the tile service; RadarWise applies its light and dark treatments locally, so no basemap API key is required. BOM radar uses BOM-native light/dark map tiles. |
 | `radar_speed` | No | `700` | Radar loop speed in milliseconds, 300-3000. |
 | `radar_zoom` | No | `7` | Initial radar zoom. |
 | `show_warning_overlay` | No | `true` | Show active US NWS alerts on the radar map when available. |
