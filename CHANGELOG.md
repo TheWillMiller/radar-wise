@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.23
+
+### Added
+
+- Added a localized current feels-like temperature beneath the main temperature when the Home Assistant weather entity exposes apparent temperature.
+
+### Changed
+
+- Replaced the broad NOAA time-image overlay with NOAA/NWS quality-controlled base reflectivity WMS tiles. The new US radar presentation uses the traditional precipitation palette and filters ground clutter and other non-precipitation echoes while preserving animated coverage for CONUS, Alaska, Hawaii, Guam, and the Caribbean.
+- Added regression and live browser coverage for NOAA radar layer selection, tile loading, and apparent-temperature display.
+
 ## 0.8.22
 
 ### Fixed

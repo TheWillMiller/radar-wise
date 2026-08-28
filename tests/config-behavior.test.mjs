@@ -97,6 +97,13 @@ function createCard(config = {}) {
   const overrideLocation = overrideCard._latLon();
   assert(overrideLocation.lat === 34.0522, "an explicit radar latitude should override the Home Assistant latitude");
   assert(overrideLocation.lon === -118.2437, "an explicit radar longitude should override the Home Assistant longitude");
+
+  assert(createCard({ latitude: 33.688, longitude: -78.886 })._noaaLayerName() === "conus:conus_bref_qcd", "NOAA radar should use quality-controlled CONUS base reflectivity for Myrtle Beach");
+  assert(createCard({ latitude: 61.2181, longitude: -149.9003 })._noaaLayerName() === "alaska:alaska_bref_qcd", "NOAA radar should preserve Alaska coverage");
+  assert(createCard({ latitude: 52.9, longitude: 172.5 })._noaaLayerName() === "alaska:alaska_bref_qcd", "NOAA radar should preserve Aleutian coverage across the antimeridian");
+  assert(createCard({ latitude: 21.3099, longitude: -157.8581 })._noaaLayerName() === "hawaii:hawaii_bref_qcd", "NOAA radar should preserve Hawaii coverage");
+  assert(createCard({ latitude: 13.4443, longitude: 144.7937 })._noaaLayerName() === "guam:guam_bref_qcd", "NOAA radar should preserve Guam coverage");
+  assert(createCard({ latitude: 18.2208, longitude: -66.5901 })._noaaLayerName() === "carib:carib_bref_qcd", "NOAA radar should preserve Caribbean coverage");
 }
 
 {
@@ -108,6 +115,31 @@ function createCard(config = {}) {
   for (const key of ["show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset"]) {
     assert(card._config[key] === true, `${key} should default to visible`);
   }
+}
+
+{
+  const card = createCard();
+  const imperial = card._unitContext({ temperature_unit: "°F" });
+  const metric = createCard({ units: "metric" })._unitContext({ temperature_unit: "°F" });
+  assert(card._apparentTemperature({ apparent_temperature: 84 }, imperial) === "84°F", "Home Assistant apparent_temperature should render as feels-like temperature");
+  assert(card._apparentTemperature({ native_apparent_temperature: 84 }, metric) === "29°C", "native apparent temperature should convert to the selected display units");
+  assert(card._apparentTemperature({ feels_like: 81 }, imperial) === "81°F", "common feels_like aliases should remain compatible");
+  assert(card._apparentTemperature({}, imperial) === "", "feels-like temperature should be omitted when the provider does not supply it");
+}
+
+{
+  const card = createCard();
+  const pixels = { data: new Uint8ClampedArray([
+    70, 102, 164, 255,
+    92, 181, 198, 255,
+    55, 214, 105, 255,
+    240, 40, 20, 255,
+    220, 70, 230, 255,
+    255, 255, 255, 0
+  ]) };
+  assert(card._filterNoaaWeakEchoes(pixels) === 2, "classic NOAA radar should suppress gray/blue/cyan weak echoes");
+  assert(pixels.data[3] === 0 && pixels.data[7] === 0, "weak NOAA echoes should become transparent");
+  assert(pixels.data[11] === 255 && pixels.data[15] === 255 && pixels.data[19] === 255, "green, red, and magenta precipitation returns should remain visible");
 }
 
 {

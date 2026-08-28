@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.22`
+**Latest release:** `v0.8.23`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -35,7 +35,7 @@ RadarWise gets weather data from an existing Home Assistant `weather` entity, so
 
 | Region | Weather data | Radar |
 | --- | --- | --- |
-| United States | Any Home Assistant `weather` entity | NOAA radar by default, RainViewer optional |
+| United States | Any Home Assistant `weather` entity | NOAA quality-controlled precipitation radar by default, RainViewer optional |
 | Canada | Any Home Assistant `weather` entity | Environment Canada radar by default, RainViewer optional |
 | Australia | Any Home Assistant `weather` entity | Bureau of Meteorology radar by default, RainViewer optional |
 | United Kingdom | Any Home Assistant `weather` entity | RainViewer global radar by default |
@@ -43,7 +43,7 @@ RadarWise gets weather data from an existing Home Assistant `weather` entity, so
 
 RadarWise does not ask for, store, or call private weather API keys from dashboard YAML. Open-Meteo can provide no-key AQI, UV index, and pollen environment data, but radar imagery still comes from the selected radar provider.
 
-Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses native Bureau of Meteorology WMTS radar tiles and BOM basemap tiles, with no API key required. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits. Leaflet 1.9.4 is bundled into the card, so the map does not load its JavaScript or CSS from a third-party CDN at runtime.
+US radar uses NOAA/NWS quality-controlled base reflectivity (`BREF.QCD`), which removes ground clutter and other non-precipitation echoes. RadarWise also hides the weakest gray, blue, and cyan returns so visible precipitation starts in familiar green, followed by yellow and red for stronger rain. Environment Canada radar uses the public MSC GeoMet `RADAR_1KM_RRAI` WMS layer. Australia radar uses native Bureau of Meteorology WMTS radar tiles and BOM basemap tiles, with no API key required. RainViewer is still available as a no-key global radar option. Its public API is for personal, educational, and small community use and may have service or coverage limits. Leaflet 1.9.4 is bundled into the card, so the map does not load its JavaScript or CSS from a third-party CDN at runtime.
 
 ### Testing Outside the US, Canada, Australia, and UK
 
@@ -64,6 +64,7 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Home Assistant visual editor
 - Existing `weather` entity support
 - Optional local temperature sensor override
+- Current feels-like temperature when the weather entity exposes apparent temperature
 - Optional humidity sensor fallback
 - Optional dew point sensor fallback
 - Optional local wind speed and wind direction/bearing overrides
@@ -93,7 +94,7 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Adjustable panel widths with a configurable vertical-collapse threshold
 - Panel widths automatically rebalance when optional panels are hidden
 - Optional radar panel
-- US NOAA radar support
+- US NOAA quality-controlled precipitation radar support
 - Environment Canada radar support
 - Australia Bureau of Meteorology radar support
 - RainViewer global radar support for the UK, global regions, and optional Canada fallback
@@ -154,7 +155,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.22/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.23/radarwise-card.js
 type: module
 ```
 
@@ -380,7 +381,7 @@ Radar location and map controls:
 | `environment_source` | No | `sensors` | AQI/pollen/UV source: `sensors`, `open_meteo`, or `disabled`. Open-Meteo uses the configured radar latitude/longitude and does not need an API key. |
 | `title` | No | `Local Weather` | Card title. |
 | `country` | No | `us` | Region hint: `us`, `ca`, `au`, `uk`, or `global`. |
-| `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `bom`, `rainviewer`, or `none`. |
+| `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `bom`, `rainviewer`, or `none`. US `noaa` mode uses quality-controlled base reflectivity to emphasize precipitation and suppress non-weather echoes. |
 | `theme_mode` | No | `radarwise` | `radarwise`, `dark`, or `auto`. `dark` uses RadarWise's neutral dark palette; `auto` follows Home Assistant theme variables. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, or `nl`. Auto follows Home Assistant/browser language when possible. |
@@ -488,6 +489,10 @@ The red radar dot appears when the US NWS warning overlay finds an active alert 
 1. Check whether the selected weather entity exposes a dew point attribute.
 2. If it does not, choose a dew point sensor in the visual editor.
 3. Or set `dew_point_entity: sensor.your_dew_point_sensor` in YAML.
+
+### Feels like does not show
+
+RadarWise displays feels-like temperature automatically when the selected Home Assistant weather entity exposes `apparent_temperature`. It stays hidden when that value is unavailable; no placeholder is shown.
 
 ### AQI or pollen does not show
 

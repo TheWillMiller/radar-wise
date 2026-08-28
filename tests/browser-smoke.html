@@ -44,13 +44,21 @@
           resolve();
         });
       });
+      const noaaLayer = card._noaaLayer(new Date(), { opacity: 0.9 }).addTo(map);
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("NOAA quality-controlled precipitation radar tiles did not load")), 15000);
+        noaaLayer.once("tileload", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
       document.body.append(card);
       card.hass = {
         states: {
           "weather.home": {
             state: "partlycloudy",
             last_updated: new Date().toISOString(),
-            attributes: { temperature: 72, supported_features: 3 }
+            attributes: { temperature: 72, apparent_temperature: 75, supported_features: 3 }
           }
         },
         config: { latitude: 33.688, longitude: -78.886 },
@@ -74,15 +82,35 @@
       if (cloudAnimation !== "ww-cloud-drift") {
         throw new Error(`The subtle cloud animation did not activate: ${cloudAnimation}`);
       }
-      const tileImages = [...previewRoot.querySelectorAll("img.leaflet-tile")];
-      const tileHosts = tileImages.map((tile) => new URL(tile.src).hostname);
-      if (!tileHosts.length || tileHosts.some((host) => host !== "tile.openstreetmap.org")) {
-        throw new Error(`Unexpected basemap tile host: ${tileHosts.join(", ") || "none"}`);
+      if (card.shadowRoot.querySelector(".temp-feels")?.textContent.trim() !== "Feels like 75°F") {
+        throw new Error("The Home Assistant apparent temperature did not render as Feels like");
       }
-      if (tileImages.some((tile) => tile.referrerPolicy !== "origin")) {
+      const tileImages = [...previewRoot.querySelectorAll("img.leaflet-tile")];
+      const basemapTiles = tileImages.filter((tile) => new URL(tile.src).hostname === "tile.openstreetmap.org");
+      if (!basemapTiles.length) {
+        throw new Error("OpenStreetMap basemap tiles were not rendered");
+      }
+      if (basemapTiles.some((tile) => tile.referrerPolicy !== "origin")) {
         throw new Error("Leaflet did not apply the origin-only referrer policy to OpenStreetMap tile images");
       }
-      document.getElementById("status").textContent = `RadarWise ${window.customCards.at(-1).preview ? "preview " : ""}loaded with Leaflet ${window.L.version}, RadarWise Dark, and OpenStreetMap tiles under Home Assistant's no-referrer policy`;
+      const noaaTiles = [...previewRoot.querySelectorAll('canvas[data-radarwise-layer="noaa-precipitation"]')];
+      if (!noaaTiles.length) {
+        throw new Error("NOAA quality-controlled precipitation radar canvases were not rendered");
+      }
+      if (!noaaTiles.some((tile) => Number(tile.dataset.filteredPixels) > 0)) {
+        throw new Error("NOAA weak blue echoes were not filtered from the traditional precipitation view");
+      }
+      const remainingWeakEchoes = noaaTiles.reduce((total, tile) => {
+        const pixels = tile.getContext("2d").getImageData(0, 0, tile.width, tile.height).data;
+        for (let index = 0; index < pixels.length; index += 4) {
+          if (pixels[index + 3] && pixels[index] < 120 && pixels[index + 1] < 220 && pixels[index + 2] >= pixels[index + 1] - 20) total += 1;
+        }
+        return total;
+      }, 0);
+      if (remainingWeakEchoes) {
+        throw new Error(`${remainingWeakEchoes} weak blue NOAA radar pixels remained visible`);
+      }
+      document.getElementById("status").textContent = `RadarWise ${window.customCards.at(-1).preview ? "preview " : ""}loaded with Leaflet ${window.L.version}, Feels like, OpenStreetMap, and NOAA quality-controlled precipitation radar`;
       document.body.dataset.smoke = "passed";
     </script>
   </body>
