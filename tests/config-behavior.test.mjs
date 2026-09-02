@@ -371,6 +371,12 @@ function renderRegisteredCard(options) {
     return card.shadowRoot.innerHTML;
   }
 
+  function renderedSummary(html, intro = "Prognos") {
+    return [...html.matchAll(/title="([^"]+)"/g)]
+      .map((match) => match[1])
+      .find((title) => title.startsWith(`${intro}: `)) || "";
+  }
+
   const full = await renderForecast();
   const daily = await renderForecast(
     { forecast_mode: "daily" },
@@ -401,6 +407,59 @@ function renderRegisteredCard(options) {
   assert(
     missing.length === 0,
     `Swedish forecast surfaces should render the approved wording; missing: ${missing.join(", ")}`
+  );
+
+  const summary = renderedSummary(full);
+  const expectedSummary = "Prognos: just nu soligt, med som högst 19° och 20 % risk för nederbörd. I natt blir det klart, med som lägst 8° och 30 % risk för nederbörd. I morgon blir det växlande molnighet, omkring 16° och 40 % risk för nederbörd.";
+  assert(
+    summary === expectedSummary,
+    `Swedish forecast clauses should use idiomatic final joining. Expected: ${expectedSummary} Received: ${summary}`
+  );
+
+  const withoutTemperatures = Object.fromEntries(Object.entries(forecasts).map(([type, periods]) => [
+    type,
+    periods.map(({ temperature, templow, ...period }) => period)
+  ]));
+  const withoutPrecipitation = Object.fromEntries(Object.entries(forecasts).map(([type, periods]) => [
+    type,
+    periods.map(({ precipitation_probability, ...period }) => period)
+  ]));
+  const optionalClauseCases = [
+    [
+      "temperature clauses absent",
+      renderedSummary(await renderForecast({}, withoutTemperatures)),
+      "Prognos: just nu soligt och 20 % risk för nederbörd. I natt blir det klart och 30 % risk för nederbörd. I morgon blir det växlande molnighet och 40 % risk för nederbörd."
+    ],
+    [
+      "precipitation clauses absent",
+      renderedSummary(await renderForecast({}, withoutPrecipitation)),
+      "Prognos: just nu soligt, med som högst 19°. I natt blir det klart, med som lägst 8°. I morgon blir det växlande molnighet, omkring 16°."
+    ]
+  ];
+  const unnaturalOptionalClauses = optionalClauseCases
+    .filter(([, actual, expectedValue]) => actual !== expectedValue)
+    .map(([name, actual, expectedValue]) => `${name}: expected ${expectedValue} received ${actual}`);
+  assert(
+    unnaturalOptionalClauses.length === 0,
+    `Swedish forecast summaries should remain natural when optional clauses are absent; ${unnaturalOptionalClauses.join("; ")}`
+  );
+
+  const existingLanguageCases = [
+    ["en", "Forecast", "Forecast: currently sunny, with a high near 19° and a 20% chance of precipitation. Tonight will be clear, with a low near 8°, and a 30% chance of precipitation. Tomorrow will be partly cloudy, near 16°, and a 40% chance of precipitation."],
+    ["fr", "Prévisions", "Prévisions: actuellement ensoleillé, avec un maximum près de 19° et 20 % de risque de précipitations. Ce soir, le temps sera dégagé, avec un minimum près de 8°, et 30 % de risque de précipitations. Demain, le temps sera partiellement nuageux, près de 16°, et 40 % de risque de précipitations."],
+    ["es", "Pronóstico", "Pronóstico: actualmente soleado, con una máxima cerca de 19° y un 20 % de probabilidad de precipitación. Esta noche estará despejado, con una mínima cerca de 8°, y un 30 % de probabilidad de precipitación. Mañana estará parcialmente nublado, cerca de 16°, y un 40 % de probabilidad de precipitación."],
+    ["de", "Vorhersage", "Vorhersage: derzeit sonnig, mit einem Höchstwert um 19° und 20 % Niederschlagswahrscheinlichkeit. Heute Nacht wird es klar, mit einem Tiefstwert um 8°, und 30 % Niederschlagswahrscheinlichkeit. Morgen wird es teilweise bewölkt, um 16°, und 40 % Niederschlagswahrscheinlichkeit."],
+    ["pt", "Previsão", "Previsão: atualmente ensolarado, com máxima perto de 19° e 20% de probabilidade de precipitação. Hoje à noite estará limpo, com mínima perto de 8°, e 30% de probabilidade de precipitação. Amanhã estará parcialmente nublado, perto de 16°, e 40% de probabilidade de precipitação."],
+    ["nl", "Verwachting", "Verwachting: momenteel zonnig, met een maximum rond 19° en 20% kans op neerslag. Vanavond wordt het helder, met een minimum rond 8°, en 30% kans op neerslag. Morgen wordt het gedeeltelijk bewolkt, rond 16°, en 40% kans op neerslag."]
+  ];
+  const changedExistingLanguages = [];
+  for (const [language, intro, expectedValue] of existingLanguageCases) {
+    const actual = renderedSummary(await renderForecast({ language }), intro);
+    if (actual !== expectedValue) changedExistingLanguages.push(`${language}: expected ${expectedValue} received ${actual}`);
+  }
+  assert(
+    changedExistingLanguages.length === 0,
+    `Existing-language forecast summaries should remain byte-for-byte unchanged; ${changedExistingLanguages.join("; ")}`
   );
 }
 

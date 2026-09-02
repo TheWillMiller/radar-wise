@@ -2224,6 +2224,11 @@ class RadarWiseCard extends HTMLElement {
 
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
     const parts = [];
+    const appendPrecipitation = (clauses, chance) => {
+      if (!Number.isFinite(chance)) return clauses.join(", ");
+      const separator = this._language() === "sv" ? " " : ", ";
+      return `${clauses.join(", ")}${separator}${this._template("chancePrecip", { chance: Math.round(chance) })}`;
+    };
     const todayHigh = this._summaryHigh(daily, hourly, units);
     const todayChance = this._summaryPrecipChance([...(hourly || []).slice(0, 8), daily?.[0], twiceDaily?.[0]]);
     const nowPhrase = this._localizedCondition(condition);
@@ -2239,8 +2244,7 @@ class RadarWiseCard extends HTMLElement {
       const tonightWords = this._localizedCondition(tonight.condition || tonight.state);
       const bits = [this._template("tonight", { condition: tonightWords })];
       if (Number.isFinite(tonightTemp)) bits.push(this._template("withLow", { temp: `${Math.round(tonightTemp)}°` }));
-      if (Number.isFinite(tonightChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tonightChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tonightChance)}.`);
     }
 
     const tomorrow = this._tomorrowPeriod(twiceDaily, daily, hourly);
@@ -2250,8 +2254,7 @@ class RadarWiseCard extends HTMLElement {
       const tomorrowWords = this._localizedCondition(tomorrow.condition || tomorrow.state);
       const bits = [this._template("tomorrow", { condition: tomorrowWords })];
       if (Number.isFinite(tomorrowTemp)) bits.push(this._template("nearTemp", { temp: `${Math.round(tomorrowTemp)}°` }));
-      if (Number.isFinite(tomorrowChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tomorrowChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tomorrowChance)}.`);
     }
 
     return parts.join(" ");
