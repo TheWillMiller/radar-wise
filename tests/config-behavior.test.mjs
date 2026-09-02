@@ -1,7 +1,10 @@
 global.window = {
   customCards: [],
   setInterval: () => 1,
-  clearInterval: () => {}
+  clearInterval: () => {},
+  setTimeout: () => 1,
+  clearTimeout: () => {},
+  requestAnimationFrame: () => 1
 };
 
 const registry = new Map();
@@ -11,14 +14,100 @@ global.customElements = {
   define: (name, cls) => registry.set(name, cls)
 };
 
+class TestElement {
+  constructor({ id = "", action = "", textContent = "", title = "", ariaLabel = "" } = {}) {
+    this.id = id;
+    this.dataset = action ? { radarAction: action } : {};
+    this.textContent = textContent;
+    this.title = title;
+    this.hidden = false;
+    this.isConnected = true;
+    this.attributes = new Map();
+    this.listeners = new Map();
+    if (ariaLabel) this.attributes.set("aria-label", ariaLabel);
+  }
+
+  addEventListener(type, listener) {
+    this.listeners.set(type, listener);
+  }
+
+  click() {
+    this.listeners.get("click")?.({ stopPropagation() {} });
+    this.onclick?.({ stopPropagation() {} });
+  }
+
+  change() {
+    this.listeners.get("change")?.({ target: this });
+    this.onchange?.({ target: this });
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
+  getBoundingClientRect() {
+    return this.rect || { width: 800, height: 500 };
+  }
+}
+
+function createTestShadowRoot() {
+  let innerHTML = "";
+  let elements = new Map();
+  let radarButtons = [];
+  return {
+    get innerHTML() {
+      return innerHTML;
+    },
+    set innerHTML(value) {
+      innerHTML = String(value);
+      elements = new Map();
+      radarButtons = [];
+
+      if (innerHTML.includes('id="rmap"')) {
+        elements.set("rmap", new TestElement({ id: "rmap" }));
+      }
+      const labelText = innerHTML.match(/id="radar-lbl">([^<]*)<\/div>/)?.[1];
+      if (labelText !== undefined) {
+        elements.set("radar-lbl", new TestElement({ id: "radar-lbl", textContent: labelText }));
+      }
+      if (innerHTML.includes('id="radar-alert"')) {
+        elements.set("radar-alert", new TestElement({ id: "radar-alert" }));
+      }
+      const languageSelect = innerHTML.match(/<select id="language">([\s\S]*?)<\/select>/)?.[1];
+      if (languageSelect !== undefined) {
+        const selected = languageSelect.match(/<option value="([^"]+)"[^>]*selected/)?.[1] || "auto";
+        const language = new TestElement({ id: "language" });
+        language.value = selected;
+        elements.set("language", language);
+      }
+
+      for (const match of innerHTML.matchAll(/<button[^>]*data-radar-action="([^"]+)"[^>]*title="([^"]*)"[^>]*aria-label="([^"]*)"[^>]*>([^<]*)<\/button>/g)) {
+        radarButtons.push(new TestElement({
+          action: match[1],
+          title: match[2],
+          ariaLabel: match[3],
+          textContent: match[4]
+        }));
+      }
+    },
+    getElementById: (id) => elements.get(id) || null,
+    querySelector: (selector) => {
+      const action = selector.match(/^\[data-radar-action="([^"]+)"\]$/)?.[1];
+      if (action) return radarButtons.find((button) => button.dataset.radarAction === action) || null;
+      const id = selector.match(/^#(.+)$/)?.[1];
+      return id ? elements.get(id) || null : null;
+    },
+    querySelectorAll: (selector) => selector === "[data-radar-action]" ? radarButtons : []
+  };
+}
+
 global.HTMLElement = class {
   attachShadow() {
-    this.shadowRoot = {
-      innerHTML: "",
-      getElementById: () => null,
-      querySelector: () => null,
-      querySelectorAll: () => []
-    };
+    this.shadowRoot = createTestShadowRoot();
     return this.shadowRoot;
   }
 
@@ -44,6 +133,778 @@ const RadarWiseCardEditor = registry.get("radarwise-card-editor");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function createRegisteredCard({
+  config = {},
+  locale = { language: "en" },
+  hassConfig = { unit_system: { temperature: "°C" } },
+  states = {},
+  connection,
+  hassOverrides = {}
+} = {}) {
+  const card = new RadarWiseCard();
+  card.setConfig({ type: "custom:radarwise-card", ...config });
+  const hass = { locale, config: hassConfig, states, ...hassOverrides };
+  if (connection !== undefined) hass.connection = connection;
+  card.hass = hass;
+  return card;
+}
+
+function renderRegisteredCard(options) {
+  return createRegisteredCard(options).shadowRoot.innerHTML;
+}
+
+{
+  const card = createRegisteredCard({
+    config: {
+      entity: "weather.forecast_home",
+      language: "sv",
+      content_mode: "essentials",
+      show_radar: false,
+      show_environment: false,
+      show_animations: false
+    },
+    states: {
+      "weather.forecast_home": {
+        state: "sunny",
+        attributes: { temperature: 18, temperature_unit: "°C" }
+      }
+    }
+  });
+
+  assert(
+    card.shadowRoot.innerHTML.includes("Aktuellt väder"),
+    "explicit language: sv should render the Swedish current-weather label"
+  );
+}
+
+{
+  const baseConfig = {
+    language: "sv",
+    show_radar: false,
+    show_environment: false,
+    show_timeline: false,
+    show_forecast: false,
+    show_forecast_summary: false,
+    show_animations: false
+  };
+  const hassConfig = { unit_system: { temperature: "°C", wind_speed: "m/s" } };
+
+  const setupCard = createRegisteredCard({ config: baseConfig, hassConfig });
+  const unavailableCard = createRegisteredCard({
+    config: { ...baseConfig, entity: "weather.forecast_home" },
+    hassConfig
+  });
+  const currentCard = createRegisteredCard({
+    config: { ...baseConfig, entity: "weather.forecast_home" },
+    hassConfig,
+    states: {
+      "weather.forecast_home": {
+        state: "sunny",
+        last_updated: "2026-09-02T08:00:00Z",
+        attributes: {
+          temperature: 18,
+          temperature_unit: "°C",
+          apparent_temperature: 17,
+          humidity: 72,
+          dew_point: 12,
+          wind_speed: 4,
+          wind_speed_unit: "m/s"
+        }
+      },
+      "sun.sun": {
+        state: "above_horizon",
+        attributes: {
+          next_rising: "2026-09-03T04:02:00Z",
+          next_setting: "2026-09-02T17:43:00Z"
+        }
+      }
+    }
+  });
+
+  const rendered = `${setupCard.shadowRoot.innerHTML}\n${unavailableCard.shadowRoot.innerHTML}\n${currentCard.shadowRoot.innerHTML}`;
+  const expected = [
+    "Välj en väderentitet",
+    "Anslut en väderentitet i Home Assistant",
+    "Öppna kortredigeraren för att slutföra konfigurationen",
+    "Väntar på aktuella väderdata",
+    "Uppdaterad",
+    "Luftfuktighet",
+    "Daggpunkt",
+    "Upplevd temperatur",
+    "Vind",
+    "Soluppgång",
+    "Solnedgång"
+  ];
+  const missing = expected.filter((value) => !rendered.includes(value));
+  assert(
+    missing.length === 0,
+    `Swedish setup, status, and current-weather surfaces should render the approved wording; missing: ${missing.join(", ")}`
+  );
+}
+
+{
+  const conditions = [
+    ["sunny", "Soligt"],
+    ["clear-night", "Klart"],
+    ["partlycloudy", "Växlande molnighet"],
+    ["cloudy", "Molnigt"],
+    ["rainy", "Regn"],
+    ["pouring", "Ösregn"],
+    ["lightning", "Åska"],
+    ["lightning-rainy", "Åska och regn"],
+    ["snowy", "Snö"],
+    ["snowy-rainy", "Snöblandat regn"],
+    ["fog", "Dimma"],
+    ["windy", "Blåsigt"],
+    ["windy-variant", "Blåsigt och molnigt"],
+    ["unavailable", "inte tillgängligt"]
+  ];
+  const missing = [];
+
+  for (const [condition, expected] of conditions) {
+    const card = createRegisteredCard({
+      config: {
+        entity: "weather.forecast_home",
+        language: "sv",
+        show_radar: false,
+        show_environment: false,
+        show_timeline: false,
+        show_forecast: false,
+        show_animations: false
+      },
+      states: {
+        "weather.forecast_home": {
+          state: condition,
+          attributes: { temperature: 18, temperature_unit: "°C" }
+        }
+      }
+    });
+    if (!card.shadowRoot.innerHTML.includes(expected)) missing.push(`${condition} → ${expected}`);
+  }
+
+  assert(
+    missing.length === 0,
+    `Swedish weather conditions should render the approved wording; missing: ${missing.join(", ")}`
+  );
+}
+
+{
+  const baseState = {
+    state: "sunny",
+    attributes: {
+      temperature: 18,
+      temperature_unit: "°C",
+      supported_features: 7
+    }
+  };
+  const forecasts = {
+    hourly: [
+      {
+        datetime: "2026-09-02T10:00:00+02:00",
+        condition: "sunny",
+        temperature: 18,
+        precipitation_probability: 20
+      }
+    ],
+    daily: [
+      {
+        datetime: "2026-09-02T12:00:00+02:00",
+        condition: "sunny",
+        temperature: 19,
+        templow: 8,
+        precipitation_probability: 20
+      },
+      {
+        datetime: "2026-09-03T12:00:00+02:00",
+        condition: "partlycloudy",
+        temperature: 16,
+        precipitation_probability: 40
+      }
+    ],
+    twice_daily: [
+      {
+        datetime: "2026-09-02T08:00:00+02:00",
+        is_daytime: true,
+        condition: "sunny",
+        temperature: 19,
+        precipitation_probability: 20
+      },
+      {
+        datetime: "2026-09-02T20:00:00+02:00",
+        is_daytime: false,
+        condition: "clear-night",
+        temperature: 8,
+        precipitation_probability: 30
+      },
+      {
+        datetime: "2026-09-03T08:00:00+02:00",
+        is_daytime: true,
+        condition: "partlycloudy",
+        temperature: 16,
+        precipitation_probability: 40
+      }
+    ]
+  };
+
+  async function renderForecast(config = {}, availableForecasts = forecasts, weatherState = baseState) {
+    const card = createRegisteredCard({
+      config: {
+        entity: "weather.forecast_home",
+        language: "sv",
+        show_radar: false,
+        show_environment: false,
+        show_animations: false,
+        ...config
+      },
+      states: { "weather.forecast_home": weatherState },
+      connection: {
+        sendMessagePromise: async ({ service_data: { type } }) => ({
+          service_response: {
+            "weather.forecast_home": { forecast: availableForecasts[type] || [] }
+          }
+        })
+      }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return card.shadowRoot.innerHTML;
+  }
+
+  function renderedSummary(html, intro = "Prognos") {
+    return [...html.matchAll(/title="([^"]+)"/g)]
+      .map((match) => match[1])
+      .find((title) => title.startsWith(`${intro}: `)) || "";
+  }
+
+  const full = await renderForecast();
+  const daily = await renderForecast(
+    { forecast_mode: "daily" },
+    { daily: forecasts.daily },
+    { ...baseState, attributes: { ...baseState.attributes, supported_features: 1 } }
+  );
+  const empty = await renderForecast({}, { hourly: [], daily: [], twice_daily: [] });
+  const rendered = `${full}\n${daily}\n${empty}`;
+  const expected = [
+    "Prognos",
+    "Dagligen",
+    "Timme för timme",
+    "Dag",
+    "Natt",
+    "Väntar på prognosdata från Home Assistant.",
+    "Relativ temperatur inom de synliga prognosraderna",
+    "Prognos: just nu soligt",
+    "med som högst 19°",
+    "och 40 % risk för nederbörd",
+    "I natt blir det klart",
+    "med som lägst 8°",
+    "I morgon blir det växlande molnighet",
+    "omkring 16°"
+  ];
+  const missing = expected.filter((value) => value === "Dag"
+    ? !rendered.includes(">Dag<")
+    : !rendered.includes(value));
+  assert(
+    missing.length === 0,
+    `Swedish forecast surfaces should render the approved wording; missing: ${missing.join(", ")}`
+  );
+
+  const summary = renderedSummary(full);
+  const expectedSummary = "Prognos: just nu soligt, med som högst 19° och 20 % risk för nederbörd. I natt blir det klart, med som lägst 8° och 30 % risk för nederbörd. I morgon blir det växlande molnighet, omkring 16° och 40 % risk för nederbörd.";
+  assert(
+    summary === expectedSummary,
+    `Swedish forecast clauses should use idiomatic final joining. Expected: ${expectedSummary} Received: ${summary}`
+  );
+
+  const withoutTemperatures = Object.fromEntries(Object.entries(forecasts).map(([type, periods]) => [
+    type,
+    periods.map(({ temperature, templow, ...period }) => period)
+  ]));
+  const withoutPrecipitation = Object.fromEntries(Object.entries(forecasts).map(([type, periods]) => [
+    type,
+    periods.map(({ precipitation_probability, ...period }) => period)
+  ]));
+  const optionalClauseCases = [
+    [
+      "temperature clauses absent",
+      renderedSummary(await renderForecast({}, withoutTemperatures)),
+      "Prognos: just nu soligt och 20 % risk för nederbörd. I natt blir det klart och 30 % risk för nederbörd. I morgon blir det växlande molnighet och 40 % risk för nederbörd."
+    ],
+    [
+      "precipitation clauses absent",
+      renderedSummary(await renderForecast({}, withoutPrecipitation)),
+      "Prognos: just nu soligt, med som högst 19°. I natt blir det klart, med som lägst 8°. I morgon blir det växlande molnighet, omkring 16°."
+    ]
+  ];
+  const unnaturalOptionalClauses = optionalClauseCases
+    .filter(([, actual, expectedValue]) => actual !== expectedValue)
+    .map(([name, actual, expectedValue]) => `${name}: expected ${expectedValue} received ${actual}`);
+  assert(
+    unnaturalOptionalClauses.length === 0,
+    `Swedish forecast summaries should remain natural when optional clauses are absent; ${unnaturalOptionalClauses.join("; ")}`
+  );
+
+  const existingLanguageCases = [
+    ["en", "Forecast", "Forecast: currently sunny, with a high near 19° and a 20% chance of precipitation. Tonight will be clear, with a low near 8°, and a 30% chance of precipitation. Tomorrow will be partly cloudy, near 16°, and a 40% chance of precipitation."],
+    ["fr", "Prévisions", "Prévisions: actuellement ensoleillé, avec un maximum près de 19° et 20 % de risque de précipitations. Ce soir, le temps sera dégagé, avec un minimum près de 8°, et 30 % de risque de précipitations. Demain, le temps sera partiellement nuageux, près de 16°, et 40 % de risque de précipitations."],
+    ["es", "Pronóstico", "Pronóstico: actualmente soleado, con una máxima cerca de 19° y un 20 % de probabilidad de precipitación. Esta noche estará despejado, con una mínima cerca de 8°, y un 30 % de probabilidad de precipitación. Mañana estará parcialmente nublado, cerca de 16°, y un 40 % de probabilidad de precipitación."],
+    ["de", "Vorhersage", "Vorhersage: derzeit sonnig, mit einem Höchstwert um 19° und 20 % Niederschlagswahrscheinlichkeit. Heute Nacht wird es klar, mit einem Tiefstwert um 8°, und 30 % Niederschlagswahrscheinlichkeit. Morgen wird es teilweise bewölkt, um 16°, und 40 % Niederschlagswahrscheinlichkeit."],
+    ["pt", "Previsão", "Previsão: atualmente ensolarado, com máxima perto de 19° e 20% de probabilidade de precipitação. Hoje à noite estará limpo, com mínima perto de 8°, e 30% de probabilidade de precipitação. Amanhã estará parcialmente nublado, perto de 16°, e 40% de probabilidade de precipitação."],
+    ["nl", "Verwachting", "Verwachting: momenteel zonnig, met een maximum rond 19° en 20% kans op neerslag. Vanavond wordt het helder, met een minimum rond 8°, en 30% kans op neerslag. Morgen wordt het gedeeltelijk bewolkt, rond 16°, en 40% kans op neerslag."]
+  ];
+  const changedExistingLanguages = [];
+  for (const [language, intro, expectedValue] of existingLanguageCases) {
+    const actual = renderedSummary(await renderForecast({ language }), intro);
+    if (actual !== expectedValue) changedExistingLanguages.push(`${language}: expected ${expectedValue} received ${actual}`);
+  }
+  assert(
+    changedExistingLanguages.length === 0,
+    `Existing-language forecast summaries should remain byte-for-byte unchanged; ${changedExistingLanguages.join("; ")}`
+  );
+}
+
+{
+  function renderEnvironment(config, states) {
+    return renderRegisteredCard({
+      config: {
+        entity: "weather.forecast_home",
+        language: "sv",
+        environment_source: "sensors",
+        show_radar: false,
+        show_timeline: false,
+        show_forecast: false,
+        show_forecast_summary: false,
+        show_animations: false,
+        ...config
+      },
+      states: {
+        "weather.forecast_home": {
+          state: "sunny",
+          attributes: { temperature: 18, temperature_unit: "°C" }
+        },
+        ...states
+      }
+    });
+  }
+
+  const rendered = [];
+  for (const [state, severity] of [
+    [25, "Bra"],
+    [75, "Måttlig"],
+    [125, "Ohälsosam för känsliga grupper"],
+    [175, "Ohälsosam"],
+    [250, "Mycket ohälsosam"],
+    [350, "Farlig"]
+  ]) {
+    rendered.push(renderEnvironment(
+      { air_quality_entity: "sensor.air_quality_aqi" },
+      {
+        "sensor.air_quality_aqi": {
+          state: String(state),
+          attributes: { friendly_name: "Air Quality AQI", unit_of_measurement: "AQI" }
+        }
+      }
+    ));
+    rendered.push(severity);
+  }
+
+  for (const [configKey, entityId, expectedLabel] of [
+    ["pollen_entity", "sensor.pollen", "Pollen"],
+    ["tree_pollen_entity", "sensor.tree_pollen", "Trädpollen"],
+    ["grass_pollen_entity", "sensor.grass_pollen", "Gräspollen"],
+    ["weed_pollen_entity", "sensor.weed_pollen", "Örtpollen"],
+    ["mold_pollen_entity", "sensor.mold_pollen", "Mögelsporer"]
+  ]) {
+    rendered.push(renderEnvironment(
+      { [configKey]: entityId },
+      { [entityId]: { state: "Low", attributes: { friendly_name: entityId } } }
+    ));
+    rendered.push(expectedLabel);
+  }
+
+  for (const [state, severity] of [
+    [1, "Låg"],
+    [3, "Måttlig"],
+    [6, "Hög"],
+    [9, "Mycket hög"],
+    [12, "Extrem"]
+  ]) {
+    rendered.push(renderEnvironment(
+      { uv_index_entity: "sensor.uv_index" },
+      {
+        "sensor.uv_index": {
+          state: String(state),
+          attributes: { friendly_name: "UV Index", device_class: "uv_index" }
+        }
+      }
+    ));
+    rendered.push(severity);
+  }
+
+  const output = rendered.filter((_, index) => index % 2 === 0).join("\n");
+  const expected = [
+    "Luftkvalitet",
+    "UV-index",
+    "Pollen",
+    "Trädpollen",
+    "Gräspollen",
+    "Örtpollen",
+    "Mögelsporer",
+    "Bra",
+    "Låg",
+    "Måttlig",
+    "Hög",
+    "Mycket hög",
+    "Ohälsosam för känsliga grupper",
+    "Ohälsosam",
+    "Mycket ohälsosam",
+    "Farlig",
+    "Extrem"
+  ];
+  const missing = expected.filter((value) => !output.includes(value));
+  assert(
+    missing.length === 0,
+    `Swedish environment surfaces should render the approved wording; missing: ${missing.join(", ")}`
+  );
+}
+
+{
+  function createLeafletBoundary({ failMap = false } = {}) {
+    class Layer {
+      constructor(url = "", options = {}) {
+        this.url = url;
+        this.options = options;
+      }
+      addTo() { return this; }
+      remove() {}
+      setOpacity() {}
+      on() { return this; }
+      bindPopup(html) { this.popup = html; return this; }
+      openPopup() { globalThis.__radarWisePopup = this.popup || ""; return this; }
+    }
+    class WmsLayer extends Layer {}
+    WmsLayer.extend = () => class extends WmsLayer {};
+    Layer.WMS = WmsLayer;
+    Layer.extend = () => class extends Layer {};
+
+    const tileLayer = (url, options) => new Layer(url, options);
+    tileLayer.wms = (url, options) => new WmsLayer(url, options);
+    return {
+      TileLayer: Layer,
+      tileLayer,
+      map: () => {
+        if (failMap) throw new Error("map unavailable");
+        return { invalidateSize() {}, on() {}, remove() {} };
+      },
+      circleMarker: () => new Layer(),
+      layerGroup: () => new Layer(),
+      geoJSON: () => new Layer()
+    };
+  }
+
+  const weatherState = {
+    "weather.forecast_home": {
+      state: "sunny",
+      attributes: { temperature: 18, temperature_unit: "°C" }
+    }
+  };
+  const baseHass = {
+    locale: { language: "en" },
+    config: { latitude: 59.33, longitude: 18.07, unit_system: { temperature: "°C" } },
+    states: weatherState
+  };
+  const savedFetch = global.fetch;
+  const savedLeaflet = window.L;
+  const savedRequestAnimationFrame = window.requestAnimationFrame;
+  const savedSetTimeout = window.setTimeout;
+
+  async function createRadar(config = {}, { fetchImpl, failMap = false, zeroSize = false, immediateTimers = false } = {}) {
+    const frames = [];
+    window.requestAnimationFrame = (callback) => { frames.push(callback); return frames.length; };
+    window.setTimeout = immediateTimers ? ((callback) => { callback(); return 1; }) : (() => 1);
+    window.L = createLeafletBoundary({ failMap });
+    global.fetch = fetchImpl || (async () => ({ ok: true, json: async () => ({}) }));
+
+    const card = createRegisteredCard({
+      config: {
+        entity: "weather.forecast_home",
+        language: "sv",
+        content_mode: "radar",
+        radar_provider: "rainviewer",
+        show_environment: false,
+        show_animations: false,
+        ...config
+      },
+      locale: baseHass.locale,
+      hassConfig: baseHass.config,
+      states: baseHass.states
+    });
+    if (zeroSize) card.shadowRoot.getElementById("rmap").rect = { width: 0, height: 0 };
+    return { card, runRadar: async () => {
+      frames.at(-1)?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } };
+  }
+
+  const initial = await createRadar();
+  const initialMarkup = initial.card.shadowRoot.innerHTML;
+  const playButton = initial.card.shadowRoot.querySelector('[data-radar-action="play"]');
+  playButton.click();
+  const playLabel = playButton.getAttribute("aria-label");
+
+  const waiting = await createRadar({}, { zeroSize: true, immediateTimers: true });
+  await waiting.runRadar();
+
+  const unavailable = await createRadar({}, { failMap: true });
+  await unavailable.runRadar();
+
+  const noRainViewerFrames = await createRadar({}, {
+    fetchImpl: async () => ({ ok: true, json: async () => ({ radar: { past: [] } }) })
+  });
+  await noRainViewerFrames.runRadar();
+
+  const current = await createRadar({ country: "ca", radar_provider: "envcanada", radar_timeline: "latest" });
+  await current.runRadar();
+  const loop = await createRadar({ country: "ca", radar_provider: "envcanada", radar_timeline: "loop" });
+  await loop.runRadar();
+
+  const rainViewerData = {
+    host: "https://tilecache.example",
+    radar: {
+      past: [{ time: 1788332400, path: "/past/1" }, { time: 1788333000, path: "/past/2" }],
+      nowcast: [{ time: 1788333600, path: "/future/1" }]
+    }
+  };
+  const future = await createRadar({ country: "global", radar_timeline: "future" }, {
+    fetchImpl: async () => ({ ok: true, json: async () => rainViewerData })
+  });
+  await future.runRadar();
+
+  function alertFetch(features) {
+    return async (url) => ({
+      ok: true,
+      json: async () => String(url).includes("rainviewer") ? rainViewerData : { features }
+    });
+  }
+  globalThis.__radarWisePopup = "";
+  const singleAlert = await createRadar({ country: "us", radar_timeline: "latest" }, {
+    fetchImpl: alertFetch([{ properties: {}, geometry: null }])
+  });
+  await singleAlert.runRadar();
+  const singleAlertElement = singleAlert.card.shadowRoot.getElementById("radar-alert");
+  singleAlertElement.click();
+
+  const pluralAlert = await createRadar({ country: "us", radar_timeline: "latest" }, {
+    fetchImpl: alertFetch([
+      { properties: { headline: "Provider headline" }, geometry: null },
+      { properties: {}, geometry: null }
+    ])
+  });
+  await pluralAlert.runRadar();
+  const pluralAlertElement = pluralAlert.card.shadowRoot.getElementById("radar-alert");
+
+  const swedishPluralAlert = await createRadar({ country: "us", radar_timeline: "latest" }, {
+    fetchImpl: alertFetch([
+      { properties: {}, geometry: null },
+      { properties: {}, geometry: null }
+    ])
+  });
+  await swedishPluralAlert.runRadar();
+
+  const englishPluralAlert = await createRadar({ country: "us", radar_timeline: "latest", language: "en" }, {
+    fetchImpl: alertFetch([
+      { properties: {}, geometry: null },
+      { properties: {}, geometry: null }
+    ])
+  });
+  await englishPluralAlert.runRadar();
+
+  const activeWarningTitles = [
+    singleAlertElement.title,
+    swedishPluralAlert.card.shadowRoot.getElementById("radar-alert").title,
+    englishPluralAlert.card.shadowRoot.getElementById("radar-alert").title,
+    pluralAlertElement.title
+  ];
+  const expectedActiveWarningTitles = [
+    "1 aktiv vädervarning",
+    "2 aktiva vädervarningar",
+    "2 active weather alerts",
+    "Provider headline"
+  ];
+  assert(
+    JSON.stringify(activeWarningTitles) === JSON.stringify(expectedActiveWarningTitles),
+    `active-warning titles should use the Swedish singular and plural, preserve the English fallback, and leave provider headlines unchanged; expected ${JSON.stringify(expectedActiveWarningTitles)}, got ${JSON.stringify(activeWarningTitles)}`
+  );
+
+  const output = [
+    initialMarkup,
+    playLabel,
+    waiting.card.shadowRoot.getElementById("radar-lbl").textContent,
+    unavailable.card.shadowRoot.getElementById("radar-lbl").textContent,
+    noRainViewerFrames.card.shadowRoot.getElementById("radar-lbl").textContent,
+    current.card.shadowRoot.getElementById("radar-lbl").textContent,
+    loop.card.shadowRoot.getElementById("radar-lbl").textContent,
+    future.card.shadowRoot.getElementById("radar-lbl").textContent,
+    singleAlertElement.title,
+    singleAlertElement.textContent,
+    pluralAlertElement.textContent,
+    globalThis.__radarWisePopup
+  ].join("\n");
+  const expected = [
+    "Radarbilden laddas...",
+    "Radarbilden är inte tillgänglig",
+    "Väntar på kontrollpanelens layout för radarbilden",
+    "Radarbild från RainViewer är inte tillgänglig",
+    "aktuell radarbild",
+    "radaranimering",
+    "framtida radarbild",
+    "Föregående radarbild",
+    "Nästa radarbild",
+    "Pausa radaranimeringen",
+    "Spela upp radaranimeringen",
+    "Vädervarning",
+    "aktiv vädervarning",
+    "NWS-varning – tryck för detaljer",
+    "NWS-varningar – tryck för detaljer",
+    "Allvarlighetsgrad",
+    "Okänd"
+  ];
+  const missing = expected.filter((value) => !output.includes(value));
+  assert(
+    missing.length === 0,
+    `Swedish radar, alert, and accessibility surfaces should render the approved wording; missing: ${missing.join(", ")}`
+  );
+
+  global.fetch = savedFetch;
+  window.L = savedLeaflet;
+  window.requestAnimationFrame = savedRequestAnimationFrame;
+  window.setTimeout = savedSetTimeout;
+}
+
+{
+  const RealDate = Date;
+  const fixedNow = "2026-09-03T10:15:00Z";
+  global.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [fixedNow]));
+    }
+    static now() { return new RealDate(fixedNow).getTime(); }
+  };
+
+  const card = createRegisteredCard({
+    config: {
+      entity: "weather.forecast_home",
+      language: "sv",
+      time_format: "12",
+      time_zone_mode: "custom",
+      time_zone: "UTC",
+      show_radar: false,
+      show_environment: false,
+      show_timeline: false,
+      show_forecast: false,
+      show_forecast_summary: false,
+      show_animations: false
+    },
+    locale: { language: "en", time_format: "24" },
+    states: {
+      "weather.forecast_home": {
+        state: "sunny",
+        attributes: { temperature: 18, temperature_unit: "°C" }
+      },
+      "sun.sun": {
+        state: "above_horizon",
+        attributes: {
+          next_rising: "2026-09-03T06:00:00Z",
+          next_setting: "2026-09-03T18:00:00Z"
+        }
+      }
+    }
+  });
+  const rendered = card.shadowRoot.innerHTML;
+  global.Date = RealDate;
+
+  const expected = ["torsdag 3 september 2026", "6:00 fm", "6:00 em"];
+  const missing = expected.filter((value) => !rendered.includes(value));
+  assert(
+    missing.length === 0,
+    `Swedish dates and explicitly selected 12-hour time should render with the resolved locale; missing: ${missing.join(", ")}`
+  );
+}
+
+{
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+
+  function renderLocalized(config, hass, browserLanguage = "en-US") {
+    Object.defineProperty(globalThis, "navigator", {
+      value: { language: browserLanguage },
+      configurable: true
+    });
+    return renderRegisteredCard({
+      config: {
+        entity: "weather.forecast_home",
+        content_mode: "essentials",
+        show_radar: false,
+        show_environment: false,
+        show_animations: false,
+        ...config
+      },
+      locale: hass.locale ?? null,
+      states: {
+        "weather.forecast_home": {
+          state: "sunny",
+          attributes: { temperature: 18, temperature_unit: "°C" }
+        }
+      },
+      hassOverrides: hass
+    });
+  }
+
+  const cases = [
+    ["Home Assistant sv", renderLocalized({ language: "auto" }, { locale: { language: "sv" } }), "Aktuellt väder"],
+    ["Home Assistant sv-SE", renderLocalized({ language: "auto" }, { locale: { language: "sv-SE" } }), "Aktuellt väder"],
+    ["browser sv-FI fallback", renderLocalized({ language: "auto" }, {}, "sv-FI"), "Aktuellt väder"],
+    ["legacy Home Assistant language", renderLocalized({ language: "auto" }, { language: "sv" }), "Aktuellt väder"],
+    ["Home Assistant locale precedence", renderLocalized({ language: "auto" }, { locale: { language: "fr" }, language: "sv" }, "sv-FI"), "Météo actuelle"],
+    ["legacy forecast language migration", renderLocalized({ forecast_summary_language: "sv" }, { locale: { language: "en" } }), "Aktuellt väder"],
+    ["unsupported locale fallback", renderLocalized({ language: "auto" }, { locale: { language: "zz-ZZ" } }, "sv-FI"), "Current Weather"]
+  ];
+  for (const [language, expected] of [
+    ["en", "Current Weather"],
+    ["fr", "Météo actuelle"],
+    ["es", "Tiempo actual"],
+    ["de", "Aktuelles Wetter"],
+    ["pt", "Tempo atual"],
+    ["nl", "Huidig weer"]
+  ]) {
+    cases.push([`${language} rendered regression`, renderLocalized({ language }, { locale: { language: "sv" } }), expected]);
+  }
+
+  if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+  else delete globalThis.navigator;
+
+  const missing = cases
+    .filter(([, rendered, expected]) => !rendered.includes(expected))
+    .map(([name, , expected]) => `${name} → ${expected}`);
+  assert(
+    missing.length === 0,
+    `language selection, precedence, migration, and existing output should remain compatible; missing: ${missing.join(", ")}`
+  );
+}
+
+{
+  const editor = new RadarWiseCardEditor();
+  editor.setConfig(RadarWiseCard.getStubConfig());
+  editor.hass = { states: {} };
+  const language = editor.shadowRoot.querySelector("#language");
+  const exposesSwedish = editor.shadowRoot.innerHTML.includes(">Svenska</option>");
+  language.value = "sv";
+  language.change();
+
+  assert(
+    exposesSwedish && editor.lastEvent?.detail?.config?.language === "sv",
+    "the visual editor should list Svenska and emit language: sv through its public change event"
+  );
 }
 
 {

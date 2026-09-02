@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8">
+    <title>RadarWise localized layout test</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+
+      #fixture {
+        width: 1180px;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="status">Running localized layout test...</p>
+    <main id="fixture"></main>
+    <script type="module">
+      import "../radarwise-card.js";
+
+      try {
+        await customElements.whenDefined("radarwise-card");
+
+        const card = document.createElement("radarwise-card");
+        card.setConfig({
+          type: "custom:radarwise-card",
+          entity: "weather.forecast_home",
+          language: "sv",
+          country: "global",
+          card_height: 500,
+          density: "slim",
+          show_animations: false,
+          show_forecast_summary: false,
+          time_format: "24"
+        });
+        document.getElementById("fixture").append(card);
+
+        card.hass = {
+          states: {
+            "weather.forecast_home": {
+              state: "partlycloudy",
+              last_updated: "2026-09-02T16:00:00Z",
+              attributes: {
+                temperature: 21,
+                temperature_unit: "°C",
+                humidity: 45,
+                dew_point: 8,
+                wind_speed: 5,
+                wind_speed_unit: "m/s",
+                wind_bearing: "WSW",
+                supported_features: 3
+              }
+            },
+            "sun.sun": {
+              state: "above_horizon",
+              attributes: {
+                next_rising: "2026-09-03T02:49:00Z",
+                next_setting: "2026-09-02T16:46:00Z"
+              }
+            }
+          },
+          config: {
+            latitude: 59.3293,
+            longitude: 18.0686,
+            unit_system: {
+              temperature: "°C",
+              wind_speed: "m/s"
+            }
+          },
+          locale: { language: "sv", time_format: "24" },
+          connection: {
+            sendMessagePromise: async () => ({ forecast: [] })
+          }
+        };
+
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        const chrome92Layout = document.createElement("style");
+        chrome92Layout.textContent = ".details-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}";
+        card.shadowRoot.append(chrome92Layout);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        const overflowingLabels = [...card.shadowRoot.querySelectorAll(".stat")]
+          .filter((tile) => tile.scrollWidth > tile.clientWidth)
+          .map((tile) => tile.querySelector(".stat-lbl")?.textContent.trim())
+          .filter(Boolean);
+
+        if (overflowingLabels.length) {
+          throw new Error(`Localized stat labels escape their tiles: ${overflowingLabels.join(", ")}`);
+        }
+
+        document.getElementById("status").textContent = "PASS: localized stat labels stay within their tiles";
+        document.body.dataset.testStatus = "passed";
+      } catch (error) {
+        document.getElementById("status").textContent = `FAIL: ${error.message}`;
+        document.body.dataset.testStatus = "failed";
+      }
+    </script>
+  </body>
+</html>

@@ -9791,9 +9791,92 @@ var RADARWISE_LANGUAGES = {
   es: "Espa\xF1ol",
   de: "Deutsch",
   pt: "Portugu\xEAs",
-  nl: "Nederlands"
+  nl: "Nederlands",
+  sv: "Svenska"
 };
 var RADARWISE_TEXT = {
+  sv: {
+    am: "fm",
+    pm: "em",
+    currentWeather: "Aktuellt v\xE4der",
+    selectWeatherEntity: "V\xE4lj en v\xE4derentitet",
+    connectWeather: "Anslut en v\xE4derentitet i Home Assistant",
+    openEditor: "\xD6ppna kortredigeraren f\xF6r att slutf\xF6ra konfigurationen",
+    waitingLive: "V\xE4ntar p\xE5 aktuella v\xE4derdata",
+    updated: "Uppdaterad",
+    forecast: "Prognos",
+    daily: "Dagligen",
+    hourly: "Timme f\xF6r timme",
+    dayPeriod: "Dag",
+    nightPeriod: "Natt",
+    humidity: "Luftfuktighet",
+    dewPoint: "Daggpunkt",
+    feelsLike: "Upplevd temperatur",
+    airQuality: "Luftkvalitet",
+    uvIndex: "UV-index",
+    pollen: "Pollen",
+    treePollen: "Tr\xE4dpollen",
+    grassPollen: "Gr\xE4spollen",
+    weedPollen: "\xD6rtpollen",
+    moldPollen: "M\xF6gelsporer",
+    good: "Bra",
+    low: "L\xE5g",
+    moderate: "M\xE5ttlig",
+    high: "H\xF6g",
+    veryHigh: "Mycket h\xF6g",
+    unhealthySensitive: "Oh\xE4lsosam f\xF6r k\xE4nsliga grupper",
+    unhealthy: "Oh\xE4lsosam",
+    veryUnhealthy: "Mycket oh\xE4lsosam",
+    hazardous: "Farlig",
+    extreme: "Extrem",
+    wind: "Vind",
+    sunrise: "Soluppg\xE5ng",
+    sunset: "Solnedg\xE5ng",
+    waitingForecast: "V\xE4ntar p\xE5 prognosdata fr\xE5n Home Assistant.",
+    relativeTemp: "Relativ temperatur inom de synliga prognosraderna",
+    radarLoading: "Radarbilden laddas...",
+    radarUnavailable: "Radarbilden \xE4r inte tillg\xE4nglig",
+    radarWaiting: "V\xE4ntar p\xE5 kontrollpanelens layout f\xF6r radarbilden",
+    rainviewerUnavailable: "Radarbild fr\xE5n RainViewer \xE4r inte tillg\xE4nglig",
+    currentRadar: "aktuell radarbild",
+    radarLoop: "radaranimering",
+    futureRadar: "framtida radarbild",
+    previousRadarFrame: "F\xF6reg\xE5ende radarbild",
+    nextRadarFrame: "N\xE4sta radarbild",
+    pauseRadarLoop: "Pausa radaranimeringen",
+    playRadarLoop: "Spela upp radaranimeringen",
+    weatherAlert: "V\xE4dervarning",
+    activeWeatherAlert: "aktiv v\xE4dervarning",
+    activeWeatherAlerts: "aktiva v\xE4dervarningar",
+    nwsAlertTap: "NWS-varning \u2013 tryck f\xF6r detaljer",
+    nwsAlertsTap: "NWS-varningar \u2013 tryck f\xF6r detaljer",
+    severity: "Allvarlighetsgrad",
+    unknown: "Ok\xE4nd",
+    forecastIntro: "Prognos",
+    currently: "just nu",
+    withHigh: "med som h\xF6gst {temp}",
+    chancePrecip: "och {chance} % risk f\xF6r nederb\xF6rd",
+    tonight: "I natt blir det {condition}",
+    withLow: "med som l\xE4gst {temp}",
+    tomorrow: "I morgon blir det {condition}",
+    nearTemp: "omkring {temp}",
+    conditions: {
+      sunny: "soligt",
+      "clear night": "klart",
+      "partly cloudy": "v\xE4xlande molnighet",
+      cloudy: "molnigt",
+      rainy: "regn",
+      pouring: "\xF6sregn",
+      lightning: "\xE5ska",
+      "lightning rainy": "\xE5ska och regn",
+      snowy: "sn\xF6",
+      "snowy rainy": "sn\xF6blandat regn",
+      fog: "dimma",
+      windy: "bl\xE5sigt",
+      "windy variant": "bl\xE5sigt och molnigt",
+      unavailable: "inte tillg\xE4ngligt"
+    }
+  },
   en: {
     am: "AM",
     pm: "PM",
@@ -11567,6 +11650,11 @@ var RadarWiseCard = class extends HTMLElement {
   }
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
     const parts = [];
+    const appendPrecipitation = (clauses, chance) => {
+      if (!Number.isFinite(chance)) return clauses.join(", ");
+      const separator = this._language() === "sv" ? " " : ", ";
+      return `${clauses.join(", ")}${separator}${this._template("chancePrecip", { chance: Math.round(chance) })}`;
+    };
     const todayHigh = this._summaryHigh(daily, hourly, units);
     const todayChance = this._summaryPrecipChance([...(hourly || []).slice(0, 8), daily?.[0], twiceDaily?.[0]]);
     const nowPhrase = this._localizedCondition(condition);
@@ -11581,8 +11669,7 @@ var RadarWiseCard = class extends HTMLElement {
       const tonightWords = this._localizedCondition(tonight.condition || tonight.state);
       const bits = [this._template("tonight", { condition: tonightWords })];
       if (Number.isFinite(tonightTemp)) bits.push(this._template("withLow", { temp: `${Math.round(tonightTemp)}\xB0` }));
-      if (Number.isFinite(tonightChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tonightChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tonightChance)}.`);
     }
     const tomorrow = this._tomorrowPeriod(twiceDaily, daily, hourly);
     if (tomorrow) {
@@ -11591,8 +11678,7 @@ var RadarWiseCard = class extends HTMLElement {
       const tomorrowWords = this._localizedCondition(tomorrow.condition || tomorrow.state);
       const bits = [this._template("tomorrow", { condition: tomorrowWords })];
       if (Number.isFinite(tomorrowTemp)) bits.push(this._template("nearTemp", { temp: `${Math.round(tomorrowTemp)}\xB0` }));
-      if (Number.isFinite(tomorrowChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tomorrowChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tomorrowChance)}.`);
     }
     return parts.join(" ");
   }
@@ -12672,7 +12758,8 @@ var RadarWiseCard = class extends HTMLElement {
           onEachFeature: (feature, layer) => layer.bindPopup?.(this._alertPopup(feature.properties || {}))
         }).addTo(group);
       }
-      const headline = features[0]?.properties?.headline || `${features.length} ${this._t("activeWeatherAlert")}${features.length === 1 ? "" : "s"}`;
+      const activeWeatherAlertLabel = features.length === 1 ? this._t("activeWeatherAlert") : this._texts().activeWeatherAlerts ?? `${this._t("activeWeatherAlert")}s`;
+      const headline = features[0]?.properties?.headline || `${features.length} ${activeWeatherAlertLabel}`;
       const popupHtml = this._alertsPopup(features);
       const marker = window.L.circleMarker([lat, lon], {
         radius: 9,
@@ -13262,7 +13349,7 @@ var RadarWiseCard = class extends HTMLElement {
       .stat-ico svg{width:27px;height:27px}
       .stat-ico ha-icon{width:27px;height:27px;color:var(--ww-wave)}
       .custom-sensor-stat{min-height:60px}
-      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal}
       .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
       .ww-icon{overflow:visible;transform-box:fill-box}
       :host([animations]) .current-icon .ww-icon{filter:drop-shadow(0 8px 14px rgba(42,122,148,.14))}

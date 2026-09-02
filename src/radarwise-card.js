@@ -230,10 +230,93 @@ const RADARWISE_LANGUAGES = {
   es: "Español",
   de: "Deutsch",
   pt: "Português",
-  nl: "Nederlands"
+  nl: "Nederlands",
+  sv: "Svenska"
 };
 
 const RADARWISE_TEXT = {
+  sv: {
+    am: "fm",
+    pm: "em",
+    currentWeather: "Aktuellt väder",
+    selectWeatherEntity: "Välj en väderentitet",
+    connectWeather: "Anslut en väderentitet i Home Assistant",
+    openEditor: "Öppna kortredigeraren för att slutföra konfigurationen",
+    waitingLive: "Väntar på aktuella väderdata",
+    updated: "Uppdaterad",
+    forecast: "Prognos",
+    daily: "Dagligen",
+    hourly: "Timme för timme",
+    dayPeriod: "Dag",
+    nightPeriod: "Natt",
+    humidity: "Luftfuktighet",
+    dewPoint: "Daggpunkt",
+    feelsLike: "Upplevd temperatur",
+    airQuality: "Luftkvalitet",
+    uvIndex: "UV-index",
+    pollen: "Pollen",
+    treePollen: "Trädpollen",
+    grassPollen: "Gräspollen",
+    weedPollen: "Örtpollen",
+    moldPollen: "Mögelsporer",
+    good: "Bra",
+    low: "Låg",
+    moderate: "Måttlig",
+    high: "Hög",
+    veryHigh: "Mycket hög",
+    unhealthySensitive: "Ohälsosam för känsliga grupper",
+    unhealthy: "Ohälsosam",
+    veryUnhealthy: "Mycket ohälsosam",
+    hazardous: "Farlig",
+    extreme: "Extrem",
+    wind: "Vind",
+    sunrise: "Soluppgång",
+    sunset: "Solnedgång",
+    waitingForecast: "Väntar på prognosdata från Home Assistant.",
+    relativeTemp: "Relativ temperatur inom de synliga prognosraderna",
+    radarLoading: "Radarbilden laddas...",
+    radarUnavailable: "Radarbilden är inte tillgänglig",
+    radarWaiting: "Väntar på kontrollpanelens layout för radarbilden",
+    rainviewerUnavailable: "Radarbild från RainViewer är inte tillgänglig",
+    currentRadar: "aktuell radarbild",
+    radarLoop: "radaranimering",
+    futureRadar: "framtida radarbild",
+    previousRadarFrame: "Föregående radarbild",
+    nextRadarFrame: "Nästa radarbild",
+    pauseRadarLoop: "Pausa radaranimeringen",
+    playRadarLoop: "Spela upp radaranimeringen",
+    weatherAlert: "Vädervarning",
+    activeWeatherAlert: "aktiv vädervarning",
+    activeWeatherAlerts: "aktiva vädervarningar",
+    nwsAlertTap: "NWS-varning – tryck för detaljer",
+    nwsAlertsTap: "NWS-varningar – tryck för detaljer",
+    severity: "Allvarlighetsgrad",
+    unknown: "Okänd",
+    forecastIntro: "Prognos",
+    currently: "just nu",
+    withHigh: "med som högst {temp}",
+    chancePrecip: "och {chance} % risk för nederbörd",
+    tonight: "I natt blir det {condition}",
+    withLow: "med som lägst {temp}",
+    tomorrow: "I morgon blir det {condition}",
+    nearTemp: "omkring {temp}",
+    conditions: {
+      sunny: "soligt",
+      "clear night": "klart",
+      "partly cloudy": "växlande molnighet",
+      cloudy: "molnigt",
+      rainy: "regn",
+      pouring: "ösregn",
+      lightning: "åska",
+      "lightning rainy": "åska och regn",
+      snowy: "snö",
+      "snowy rainy": "snöblandat regn",
+      fog: "dimma",
+      windy: "blåsigt",
+      "windy variant": "blåsigt och molnigt",
+      unavailable: "inte tillgängligt"
+    }
+  },
   en: {
     am: "AM",
     pm: "PM",
@@ -2141,6 +2224,11 @@ class RadarWiseCard extends HTMLElement {
 
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
     const parts = [];
+    const appendPrecipitation = (clauses, chance) => {
+      if (!Number.isFinite(chance)) return clauses.join(", ");
+      const separator = this._language() === "sv" ? " " : ", ";
+      return `${clauses.join(", ")}${separator}${this._template("chancePrecip", { chance: Math.round(chance) })}`;
+    };
     const todayHigh = this._summaryHigh(daily, hourly, units);
     const todayChance = this._summaryPrecipChance([...(hourly || []).slice(0, 8), daily?.[0], twiceDaily?.[0]]);
     const nowPhrase = this._localizedCondition(condition);
@@ -2156,8 +2244,7 @@ class RadarWiseCard extends HTMLElement {
       const tonightWords = this._localizedCondition(tonight.condition || tonight.state);
       const bits = [this._template("tonight", { condition: tonightWords })];
       if (Number.isFinite(tonightTemp)) bits.push(this._template("withLow", { temp: `${Math.round(tonightTemp)}°` }));
-      if (Number.isFinite(tonightChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tonightChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tonightChance)}.`);
     }
 
     const tomorrow = this._tomorrowPeriod(twiceDaily, daily, hourly);
@@ -2167,8 +2254,7 @@ class RadarWiseCard extends HTMLElement {
       const tomorrowWords = this._localizedCondition(tomorrow.condition || tomorrow.state);
       const bits = [this._template("tomorrow", { condition: tomorrowWords })];
       if (Number.isFinite(tomorrowTemp)) bits.push(this._template("nearTemp", { temp: `${Math.round(tomorrowTemp)}°` }));
-      if (Number.isFinite(tomorrowChance)) bits.push(this._template("chancePrecip", { chance: Math.round(tomorrowChance) }));
-      parts.push(`${bits.join(", ")}.`);
+      parts.push(`${appendPrecipitation(bits, tomorrowChance)}.`);
     }
 
     return parts.join(" ");
@@ -3339,7 +3425,10 @@ class RadarWiseCard extends HTMLElement {
           onEachFeature: (feature, layer) => layer.bindPopup?.(this._alertPopup(feature.properties || {}))
         }).addTo(group);
       }
-      const headline = features[0]?.properties?.headline || `${features.length} ${this._t("activeWeatherAlert")}${features.length === 1 ? "" : "s"}`;
+      const activeWeatherAlertLabel = features.length === 1
+        ? this._t("activeWeatherAlert")
+        : this._texts().activeWeatherAlerts ?? `${this._t("activeWeatherAlert")}s`;
+      const headline = features[0]?.properties?.headline || `${features.length} ${activeWeatherAlertLabel}`;
       const popupHtml = this._alertsPopup(features);
       const marker = window.L.circleMarker([lat, lon], {
         radius: 9,
@@ -3985,7 +4074,7 @@ class RadarWiseCard extends HTMLElement {
       .stat-ico svg{width:27px;height:27px}
       .stat-ico ha-icon{width:27px;height:27px;color:var(--ww-wave)}
       .custom-sensor-stat{min-height:60px}
-      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal}
       .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
       .ww-icon{overflow:visible;transform-box:fill-box}
       :host([animations]) .current-icon .ww-icon{filter:drop-shadow(0 8px 14px rgba(42,122,148,.14))}
