@@ -13349,7 +13349,7 @@ var RadarWiseCard = class extends HTMLElement {
       .stat-ico svg{width:27px;height:27px}
       .stat-ico ha-icon{width:27px;height:27px;color:var(--ww-wave)}
       .custom-sensor-stat{min-height:60px}
-      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal}
       .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
       .ww-icon{overflow:visible;transform-box:fill-box}
       :host([animations]) .current-icon .ww-icon{filter:drop-shadow(0 8px 14px rgba(42,122,148,.14))}
