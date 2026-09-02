@@ -81,7 +81,7 @@ If you are testing from New Zealand, Europe, South America, Africa, Asia, or any
 - Auto-scroll option for long forecast lists
 - Precipitation probability and amount when exposed by the weather provider
 - Fahrenheit and Celsius support
-- Card language support for Auto, English, French, Spanish, German, Portuguese, and Dutch
+- Card language support for Auto, English, French, Spanish, German, Portuguese, Dutch, and Swedish
 - Per-card browser, Home Assistant location, or custom IANA time zone
 - RadarWise built-in light theme mode
 - Neutral RadarWise Dark theme mode
@@ -331,7 +331,7 @@ RadarWise includes a Home Assistant visual editor. When adding the card from the
 - Choose automatic radar, NOAA radar, Environment Canada radar, BOM radar, RainViewer radar, or no radar
 - Choose radar timeline, style, map style, and radar loop speed
 - Set title, units, forecast counts, forecast card frequency, language, time format, per-card time zone, font preset, and theme mode
-- Choose card language: Auto, English, French, Spanish, German, Portuguese, or Dutch
+- Choose card language: Auto, English, French, Spanish, German, Portuguese, Dutch, or Swedish
 - Choose a layout preset with visual layout tiles
 - Drag panels to reorder clock/timeline, current weather, and radar
 - Adjust panel widths and choose when the card collapses to vertical layout
@@ -384,7 +384,7 @@ Radar location and map controls:
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `bom`, `rainviewer`, or `none`. US `noaa` mode uses quality-controlled base reflectivity to emphasize precipitation and suppress non-weather echoes. |
 | `theme_mode` | No | `radarwise` | `radarwise`, `dark`, or `auto`. `dark` uses RadarWise's neutral dark palette; `auto` follows Home Assistant theme variables. |
 | `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
-| `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, or `nl`. Auto follows Home Assistant/browser language when possible. |
+| `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, `nl`, or `sv`. Auto follows Home Assistant/browser language when possible. |
 | `time_format` | No | `auto` | Clock and timestamp format: `auto`, `12`, or `24`. Auto follows the Home Assistant time setting or browser locale when possible. |
 | `time_zone_mode` | No | `browser` | Per-card time zone source: `browser`, `home_assistant`, or `custom`. Home Assistant mode uses the location time zone configured under Settings > System > General. |
 | `time_zone` | No |  | IANA time zone used when `time_zone_mode: custom`, such as `America/New_York`, `Europe/London`, or `Australia/Sydney`. Invalid values fall back to browser time. |
