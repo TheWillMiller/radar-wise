@@ -287,6 +287,7 @@ const RADARWISE_TEXT = {
     playRadarLoop: "Spela upp radaranimeringen",
     weatherAlert: "Vädervarning",
     activeWeatherAlert: "aktiv vädervarning",
+    activeWeatherAlerts: "aktiva vädervarningar",
     nwsAlertTap: "NWS-varning – tryck för detaljer",
     nwsAlertsTap: "NWS-varningar – tryck för detaljer",
     severity: "Allvarlighetsgrad",
@@ -3421,7 +3422,10 @@ class RadarWiseCard extends HTMLElement {
           onEachFeature: (feature, layer) => layer.bindPopup?.(this._alertPopup(feature.properties || {}))
         }).addTo(group);
       }
-      const headline = features[0]?.properties?.headline || `${features.length} ${this._t("activeWeatherAlert")}${features.length === 1 ? "" : "s"}`;
+      const activeWeatherAlertLabel = features.length === 1
+        ? this._t("activeWeatherAlert")
+        : this._texts().activeWeatherAlerts ?? `${this._t("activeWeatherAlert")}s`;
+      const headline = features[0]?.properties?.headline || `${features.length} ${activeWeatherAlertLabel}`;
       const popupHtml = this._alertsPopup(features);
       const marker = window.L.circleMarker([lat, lon], {
         radius: 9,

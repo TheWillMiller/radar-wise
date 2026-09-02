@@ -645,6 +645,39 @@ function renderRegisteredCard(options) {
   await pluralAlert.runRadar();
   const pluralAlertElement = pluralAlert.card.shadowRoot.getElementById("radar-alert");
 
+  const swedishPluralAlert = await createRadar({ country: "us", radar_timeline: "latest" }, {
+    fetchImpl: alertFetch([
+      { properties: {}, geometry: null },
+      { properties: {}, geometry: null }
+    ])
+  });
+  await swedishPluralAlert.runRadar();
+
+  const englishPluralAlert = await createRadar({ country: "us", radar_timeline: "latest", language: "en" }, {
+    fetchImpl: alertFetch([
+      { properties: {}, geometry: null },
+      { properties: {}, geometry: null }
+    ])
+  });
+  await englishPluralAlert.runRadar();
+
+  const activeWarningTitles = [
+    singleAlertElement.title,
+    swedishPluralAlert.card.shadowRoot.getElementById("radar-alert").title,
+    englishPluralAlert.card.shadowRoot.getElementById("radar-alert").title,
+    pluralAlertElement.title
+  ];
+  const expectedActiveWarningTitles = [
+    "1 aktiv vädervarning",
+    "2 aktiva vädervarningar",
+    "2 active weather alerts",
+    "Provider headline"
+  ];
+  assert(
+    JSON.stringify(activeWarningTitles) === JSON.stringify(expectedActiveWarningTitles),
+    `active-warning titles should use the Swedish singular and plural, preserve the English fallback, and leave provider headlines unchanged; expected ${JSON.stringify(expectedActiveWarningTitles)}, got ${JSON.stringify(activeWarningTitles)}`
+  );
+
   const output = [
     initialMarkup,
     playLabel,
