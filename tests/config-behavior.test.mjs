@@ -388,7 +388,7 @@ function renderRegisteredCard(options) {
   const expected = [
     "Prognos",
     "Dagligen",
-    "Varje timme",
+    "Timme för timme",
     "Dag",
     "Natt",
     "Väntar på prognosdata från Home Assistant.",

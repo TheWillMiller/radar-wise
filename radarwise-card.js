@@ -9806,7 +9806,7 @@ var RADARWISE_TEXT = {
     updated: "Uppdaterad",
     forecast: "Prognos",
     daily: "Dagligen",
-    hourly: "Varje timme",
+    hourly: "Timme f\xF6r timme",
     dayPeriod: "Dag",
     nightPeriod: "Natt",
     humidity: "Luftfuktighet",
