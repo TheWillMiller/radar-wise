@@ -400,4 +400,21 @@ function createCard(config = {}) {
   assert(highTile.level === "unhealthy", "Google UPI 4 should apply the high-pollen tile level");
 }
 
+{
+  const card = createCard();
+  const units = card._unitContext({ temperature_unit: "°C" });
+
+  assert(card._displayTemp(null, units, false) === "--°", "a missing temperature should render as -- instead of 0");
+  assert(card._displayTemp(undefined, units, false) === "--°", "an undefined temperature should render as -- instead of 0");
+  assert(card._displayTemp(0, units, false) === "0°", "a genuine zero temperature should still render as 0");
+
+  const overnightOnly = { temperature: null, templow: 0 };
+  assert(card._forecastRange(overnightOnly, units) === "--° / 0°", "an overnight-only period should keep the low while marking the high unknown");
+  assert(card._forecastRange({ temperature: 11, templow: 2 }, units) === "11° / 2°", "a complete day should keep the existing high/low range");
+  assert(card._forecastRange({ temperature: null, templow: null }, units) === "", "a period without any temperature should render no range");
+
+  assert(card._formatPrecip({ precipitation_probability: null }, units) === "", "a missing precipitation probability should be omitted instead of shown as 0%");
+  assert(card._formatPrecip({ precipitation_probability: 0 }, units) === "0%", "a genuine zero precipitation probability should still render as 0%");
+}
+
 console.log("RadarWise configuration behavior tests passed");
