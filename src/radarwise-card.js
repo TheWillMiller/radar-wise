@@ -2124,7 +2124,7 @@ class RadarWiseCard extends HTMLElement {
             <div class="fc-period">${period}</div>
           </div>
           <div class="fc-icon">${this._icon(item.condition || item.state, 48)}</div>
-          <div class="fc-temp">${this._displayTemp(item.temperature, units, false)}</div>
+          <div class="fc-temp">${this._displayTemp(this._dailyMainTemperature(item, units), units, false)}</div>
           ${range ? `<div class="fc-range">${_wwEscape(range)}</div>` : ""}
           <div class="fc-precip">${this._formatPrecip(item, units)}</div>
         </div>
@@ -2137,6 +2137,18 @@ class RadarWiseCard extends HTMLElement {
     const low = this._tempValue(item?.templow ?? item?.low_temperature ?? item?.native_templow, units);
     if (!Number.isFinite(high) || !Number.isFinite(low)) return "";
     return `${Math.round(high)}° / ${Math.round(low)}°`;
+  }
+
+  _dailyMainTemperature(item, units, hourly = this._forecasts?.hourly || [], now = Date.now()) {
+    const dayKey = this._forecastDateKey(item?.datetime);
+    const remaining = (hourly || [])
+      .filter((hour) => this._forecastDateKey(hour?.datetime) === dayKey && new Date(hour.datetime).getTime() >= now)
+      .map((hour) => this._numberOr(hour?.temperature, NaN))
+      .filter(Number.isFinite);
+    if (remaining.length) return remaining.reduce((sum, value) => sum + value, 0) / remaining.length;
+    const high = item?.temperature ?? item?.high_temperature ?? item?.native_temperature;
+    if (Number.isFinite(this._tempValue(high, units))) return high;
+    return item?.templow ?? item?.low_temperature ?? item?.native_templow;
   }
 
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {

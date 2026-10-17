@@ -400,4 +400,30 @@ function createCard(config = {}) {
   assert(highTile.level === "unhealthy", "Google UPI 4 should apply the high-pollen tile level");
 }
 
+{
+  const card = createCard();
+  const units = card._unitContext({ temperature_unit: "°C" });
+
+  assert(card._dailyMainTemperature({ temperature: null, templow: 0 }, units) === 0, "an overnight-only day should fall back to the low for the primary temperature");
+  assert(card._dailyMainTemperature({ temperature: 11, templow: 2 }, units) === 11, "a day with a high should keep the high for the primary temperature");
+
+  const avgCard = createCard({ time_zone_mode: "custom", time_zone: "UTC" });
+  const avgUnits = avgCard._unitContext({ temperature_unit: "°C" });
+  const fixedNow = new Date("2026-10-16T23:00:00Z").getTime();
+  const remainingHours = [
+    { datetime: "2026-10-16T20:00:00Z", temperature: 100 },
+    { datetime: "2026-10-16T23:30:00Z", temperature: 4 },
+    { datetime: "2026-10-16T23:45:00Z", temperature: 6 },
+    { datetime: "2026-10-17T05:00:00Z", temperature: 20 }
+  ];
+  const avgItem = { datetime: "2026-10-16T19:30:00Z", temperature: null, templow: 0 };
+  assert(avgCard._dailyMainTemperature(avgItem, avgUnits, remainingHours, fixedNow) === 5, "a missing high should fall back to the average of the day's remaining hours");
+  const tomorrowItem = { datetime: "2026-10-17T19:30:00Z", temperature: 11, templow: 2 };
+  assert(avgCard._dailyMainTemperature(tomorrowItem, avgUnits, remainingHours, fixedNow) === 20, "the remaining average should take priority over the daily high when hourly data exists");
+
+  const todaySlot = card._renderDaily([{ datetime: "2026-10-16T19:30:00+00:00", temperature: null, templow: 0, precipitation_probability: 40, condition: "rainy" }], units);
+  assert(todaySlot.includes('fc-temp">0°<'), "the daily slot should render the low as the primary temperature when the high is missing");
+  const normalSlot = card._renderDaily([{ datetime: "2026-10-17T19:30:00+00:00", temperature: 11, templow: 2, precipitation_probability: 0, condition: "sunny" }], units);
+  assert(normalSlot.includes('fc-temp">11°<'), "the daily slot should render the high as the primary temperature when it is available");
+}
 console.log("RadarWise configuration behavior tests passed");
