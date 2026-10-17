@@ -2135,8 +2135,10 @@ class RadarWiseCard extends HTMLElement {
   _forecastRange(item, units) {
     const high = this._tempValue(item?.temperature ?? item?.high_temperature ?? item?.native_temperature, units);
     const low = this._tempValue(item?.templow ?? item?.low_temperature ?? item?.native_templow, units);
-    if (!Number.isFinite(high) || !Number.isFinite(low)) return "";
-    return `${Math.round(high)}° / ${Math.round(low)}°`;
+    if (!Number.isFinite(high) && !Number.isFinite(low)) return "";
+    const highText = Number.isFinite(high) ? `${Math.round(high)}°` : "--°";
+    const lowText = Number.isFinite(low) ? `${Math.round(low)}°` : "--°";
+    return `${highText} / ${lowText}`;
   }
 
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
@@ -3700,6 +3702,7 @@ class RadarWiseCard extends HTMLElement {
   }
 
   _numberOr(value, fallback) {
+    if (value === null || value === undefined || value === "") return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
