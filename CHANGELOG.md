@@ -6,6 +6,7 @@
 
 - Keep hourly and daily forecast data separate, including integrations that expose different weather entities. Refresh immediately when sources change and ignore obsolete responses.
 - Convert rainfall amounts to the selected unit instead of retaining the provider's unit under an imperial/metric override.
+- Include MYanello's missing-value fix from PR #37 (commit `6849452`): preserve real zeroes, omit absent precipitation, and retain the available half of an incomplete high/low range.
 - Add a WebKit drag payload and selection protection to the panel editor, plus accessible up/down buttons for environments where dragging is unavailable.
 
 ### Added

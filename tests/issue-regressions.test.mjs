@@ -23,6 +23,7 @@ for (const [config, attrs, item, expected] of [
   [{ precipitation_unit: "in" }, { precipitation_unit: "toString" }, { precipitation: 2 }, "2toString"],
   [{ units: "imperial" }, { precipitation_unit: "mm" }, { precipitation: 0 }, "0in"],
   [{ units: "imperial" }, { precipitation_unit: "mm" }, { precipitation_probability: 0 }, "0%"],
+  [{ units: "imperial" }, { precipitation_unit: "mm" }, { precipitation: null, precipitation_probability: null }, ""],
   [{ units: "imperial" }, { precipitation_unit: "mm" }, {}, ""]
 ]) {
   const c = card(config);
@@ -128,6 +129,8 @@ const days = paired._pairedForecastDays(periods);
 assert(days.length === 2 && !days[0].day && days[0].night.temperature === 50, "leading night retains blank day slot in card timezone");
 assert(days[1].day.temperature === 70 && days[1].night.temperature === 52, "same local date day and night share a column");
 assert(paired._renderDaily(periods, paired._unitContext({})).includes('class="fc-empty"'), "missing periods reserve their row");
+paired._config.forecast_count = 3;
+assert(paired._pairedForecastDays(periods)[2].night === undefined, "trailing day retains its empty night slot");
 assert(!card()._pairedForecast(periods), "existing sequential layout is unchanged by default");
 assert(!paired._pairedForecast([{ datetime: "2026-10-31", temperature: 70 }]), "native daily forecast remains a single row");
 console.log("RadarWise issue regressions passed (#33, #34, #35, #36 partial, #39)");

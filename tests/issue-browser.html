@@ -96,7 +96,7 @@ try {
   await frame();
   assert(strip.scrollHeight <= strip.clientHeight || strip.scrollTop > 0, 'lower forecast row remains reachable');
   window.fixtureCards = { split, paired, wide };
-  window.fixtureResult = { ok: true, assertions: 21, serviceCalls: calls.length };
+  window.fixtureResult = { ok: true, serviceCalls: calls.length };
   document.querySelector('#status').textContent = 'PASS: split forecasts, rain conversion, paired layout, font scaling and source changes';
 } catch (error) {
   window.fixtureResult = { ok: false, error: error.stack };
