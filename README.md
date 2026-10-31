@@ -383,19 +383,24 @@ Radar location and map controls:
 | `country` | No | `us` | Region hint: `us`, `ca`, `au`, `uk`, or `global`. |
 | `radar_provider` | No | `auto` | `auto`, `noaa`, `envcanada`, `bom`, `rainviewer`, or `none`. US `noaa` mode uses quality-controlled base reflectivity to emphasize precipitation and suppress non-weather echoes. |
 | `theme_mode` | No | `radarwise` | `radarwise`, `dark`, or `auto`. `dark` uses RadarWise's neutral dark palette; `auto` follows Home Assistant theme variables. |
-| `units` | No | `auto` | `auto`, `imperial`, or `metric`. |
+| `units` | No | `auto` | `auto`, `imperial`, or `metric`. Controls temperature and default rainfall display units. |
+| `precipitation_unit` | No | `auto` | Rainfall override: `auto` follows `units` (or the weather entity when both are automatic), `mm` or `in`. Amounts are converted; unknown source units retain their original value/unit. |
+| `hourly_entity` | No |  | Optional hourly forecast weather entity; blank uses `entity`. |
+| `daily_entity` | No |  | Optional daily/twice-daily forecast weather entity; blank uses `entity`. Current conditions still come from `entity`. |
 | `language` | No | `auto` | Card display language: `auto`, `en`, `fr`, `es`, `de`, `pt`, or `nl`. Auto follows Home Assistant/browser language when possible. |
 | `time_format` | No | `auto` | Clock and timestamp format: `auto`, `12`, or `24`. Auto follows the Home Assistant time setting or browser locale when possible. |
 | `time_zone_mode` | No | `browser` | Per-card time zone source: `browser`, `home_assistant`, or `custom`. Home Assistant mode uses the location time zone configured under Settings > System > General. |
 | `time_zone` | No |  | IANA time zone used when `time_zone_mode: custom`, such as `America/New_York`, `Europe/London`, or `Australia/Sydney`. Invalid values fall back to browser time. |
 | `font_family` | No | `auto` | Safe local font preset: `auto`, `system`, `rounded`, `condensed`, or `mono`. No remote fonts are loaded. |
+| `font_scale` | No | `1` | Card text scale, clamped to `0.7`–`1.5`. For example `0.85` makes text 15% smaller. Works with the density and responsive layout settings; does not scale the map controls. |
 | `layout` | No | `auto` | `auto`, `wide_panel`, `stacked`, `radar_bottom`, or `compact`. Use `radar_bottom` for a full-width radar below weather content, or `stacked`/`compact` for narrow dashboards. |
 | `content_mode` | No | `full` | Smart content preset: `full`, `essentials`, `forecast`, `timeline`, `radar`, or `custom`. Use `custom` for manual visibility switches. |
 | `density` | No | `comfortable` | Sizing preset: `comfortable`, `slim`, or `large`. Slim makes thinner dashboard rows; large favors wall-panel readability. |
 | `card_height` | No |  | Optional fixed card height in pixels, 180-1200. Useful for panel dashboards with extra vertical room. |
 | `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
 | `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
-| `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. |
+| `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. With paired twice-daily layout, counts date columns instead (up to two periods per date). |
+| `forecast_layout` | No | `sequential` | `sequential` preserves the existing layout. `paired` places daytime above nighttime by the card's configured local date, with blank slots for missing periods and scrolling when space is limited. Native daily data keeps its normal layout. |
 | `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. RadarWise uses the weather entity's `supported_features` to avoid requesting unsupported forecast types. Auto preserves the existing twice-daily-first behavior; daily combines day/night periods when a supported native daily forecast is unavailable. |
 | `show_forecast_summary` | No | `true` | Show or hide the one-line forecast summary under the date. The text is generated from existing forecast data, localized by `language`, and respects reduced-motion settings. |
 | `show_humidity` | No | `true` | Show or hide the humidity detail tile. |
@@ -534,6 +539,24 @@ MIT License.
 
 ## Development
 
+The options documented above under `hourly_entity`, `daily_entity`, `precipitation_unit`, `font_scale`, and `forecast_layout` are unreleased changes on this branch.
+
+For BOM or another integration with separate forecasts:
+
+```yaml
+type: custom:radarwise-card
+entity: weather.mylocation
+daily_entity: weather.mylocation
+hourly_entity: weather.mylocation_hourly
+units: metric
+precipitation_unit: in
+font_scale: 0.85
+```
+
+Leaving either forecast source blank uses the main weather entity. A source without hourly support leaves the hourly area empty; daily cards no longer repeat hourly periods. You can hide an unavailable section with `show_timeline: false` or `show_forecast: false`. Changing a forecast source refreshes it immediately.
+
+Use the editor's arrow buttons to reorder panels with a mouse, touch, or keyboard when dragging is unavailable. The three existing panel groups remain intact. `forecast_layout: paired` addresses the day/night alignment portion of #36; independently ordering current conditions, the hourly list, summary, and daily cards remains future work.
+
 The editable card source and generated HACS asset are:
 
 ```text
@@ -549,5 +572,14 @@ npm run build
 npm test
 npm run check
 ```
+
+Run the deterministic browser fixtures with Chromium and WebKit (mock Home Assistant data, no live radar/network providers):
+
+```bash
+npx playwright install chromium webkit
+npm run test:browser
+```
+
+To use an installed Chrome instead of Playwright Chromium, set `RADARWISE_CHROMIUM_CHANNEL=chrome`. Screenshots and the detailed result matrix are written to the ignored `test-results/` directory. The runner starts a temporary loopback server on an automatically assigned port and closes it and both headless browsers on completion.
 
 For HACS default repository submission, RadarWise is a dashboard/custom card. HACS validation/submission uses the `plugin` category internally for dashboard plugins.
