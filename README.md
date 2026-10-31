@@ -398,7 +398,7 @@ Radar location and map controls:
 | `density` | No | `comfortable` | Sizing preset: `comfortable`, `slim`, or `large`. Slim makes thinner dashboard rows; large favors wall-panel readability. |
 | `card_height` | No |  | Optional fixed card height in pixels, 180-1200. Useful for panel dashboards with extra vertical room. |
 | `card_max_height` | No |  | Optional card max height in pixels, 180-1200. If `card_height` is set and this is blank, RadarWise uses the fixed height as the max height too. |
-| `hourly_count` | No | `5` | Number of hourly/forecast-list rows, 1-24. If hourly forecasts are unavailable, RadarWise falls back to twice-daily or daily data. |
+| `hourly_count` | No | `5` | Number of hourly forecast rows, 1-24. Uses hourly forecasts from `hourly_entity` (or `entity` when unset); daily and twice-daily data are not substituted. |
 | `forecast_count` | No | `5` | Number of daily/twice-daily forecast cards, 1-7. With paired twice-daily layout, counts date columns instead (up to two periods per date). |
 | `forecast_layout` | No | `sequential` | `sequential` preserves the existing layout. `paired` places daytime above nighttime by the card's configured local date, with blank slots for missing periods and scrolling when space is limited. Native daily data keeps its normal layout. |
 | `forecast_mode` | No | `auto` | Forecast-card preference: `auto`, `daily`, or `twice_daily`. RadarWise uses the weather entity's `supported_features` to avoid requesting unsupported forecast types. Auto preserves the existing twice-daily-first behavior; daily combines day/night periods when a supported native daily forecast is unavailable. |
