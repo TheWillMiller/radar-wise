@@ -11,7 +11,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/TheWillMiller/radar-wise?label=stars)](https://github.com/TheWillMiller/radar-wise/stargazers)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/thewillmiller)
 
-**Latest release:** `v0.8.23`
+**Latest release:** `v0.8.24`
 
 RadarWise is a Home Assistant dashboard (Lovelace) custom card for current weather, hourly and daily forecasts, precipitation details, sunrise and sunset, wind, humidity, dew point, UV index, optional AQI/pollen, and optional radar. It follows the TideWise/RiverWise visual language while staying a dashboard card, not a backend integration.
 
@@ -155,7 +155,7 @@ RadarWise was renamed from its original project name in `v0.5.0`. If Home Assist
 For quick testing before installing locally, you can add this dashboard resource:
 
 ```yaml
-url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.23/radarwise-card.js
+url: https://cdn.jsdelivr.net/gh/TheWillMiller/radar-wise@v0.8.24/radarwise-card.js
 type: module
 ```
 
@@ -539,7 +539,7 @@ MIT License.
 
 ## Development
 
-The options documented above under `hourly_entity`, `daily_entity`, `precipitation_unit`, `font_scale`, and `forecast_layout` are unreleased changes on this branch.
+The options documented above under `hourly_entity`, `daily_entity`, `precipitation_unit`, `font_scale`, and `forecast_layout` are available starting with v0.8.24.
 
 For BOM or another integration with separate forecasts:
 

@@ -1,6 +1,6 @@
 # Forecast and display update — validation
 
-This draft is based on main `623c618` / release v0.8.23. No release version has been assigned.
+This validation record covers the changes prepared for v0.8.24, based on main `623c618` / release v0.8.23.
 
 ## Scope
 
@@ -30,7 +30,7 @@ This draft is based on main `623c618` / release v0.8.23. No release version has 
 - Twelve width/scale combinations per browser: widths 240, 360, 720, 1200; scales 0.7, 1, 1.5. Pair alignment and horizontal scroll access checked. This is not a claim that all text at maximum scale fits every narrow layout without truncation.
 - Chromium and WebKit fixture screenshots were visually inspected. No uncaught page errors were reported.
 
-## Not tested or performed
+## Not tested or performed during pre-release validation
 
 - No live Home Assistant, BOM account, or macOS Companion session was used.
 - Existing radar regression assertions passed, but live NOAA/BOM/OSM network imagery was not retested for this display/forecast update.
