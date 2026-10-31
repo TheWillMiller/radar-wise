@@ -3,7 +3,7 @@
  * Home Assistant weather dashboard card with forecasts and optional radar.
  */
 
-const CARD_VERSION = "0.8.23";
+const CARD_VERSION = "0.8.24";
 const FORECAST_REFRESH_MS = 15 * 60 * 1000;
 const ENVIRONMENT_REFRESH_MS = 60 * 60 * 1000;
 const CARD_TYPES = ["radarwise-card", "radar-wise-card", "weatherwise-card", "weather-wise-card"];
@@ -985,7 +985,14 @@ class RadarWiseCard extends HTMLElement {
   setConfig(config) {
     const normalized = this._normalizeConfig(config || {});
     const previous = this._config || {};
+    const previousForecastKey = this._forecastSourceKey();
     this._config = normalized;
+    if (previousForecastKey !== this._forecastSourceKey()) {
+      this._forecasts = { hourly: [], daily: [], twice_daily: [] };
+      this._forecastEntity = this._forecastSourceKey();
+      this._lastForecastLoad = 0;
+      this._refreshForecasts();
+    }
     this.setAttribute("theme-mode", this._config.theme_mode);
     this.toggleAttribute("animations", this._config.show_animations !== false);
     if (
@@ -1020,9 +1027,9 @@ class RadarWiseCard extends HTMLElement {
     this._hass = hass;
     const entityId = this._config.entity;
     const now = Date.now();
-    if (entityId && this._forecastEntity !== entityId) {
+    if (entityId && this._forecastEntity !== this._forecastSourceKey()) {
       this._forecasts = { hourly: [], daily: [], twice_daily: [] };
-      this._forecastEntity = entityId;
+      this._forecastEntity = this._forecastSourceKey();
       this._lastForecastLoad = 0;
       this._lastRenderKey = "";
     }
@@ -1301,6 +1308,11 @@ class RadarWiseCard extends HTMLElement {
       font_family: RADARWISE_FONT_FAMILIES[fontFamily] ? fontFamily : "auto",
       environment_source: RADARWISE_ENVIRONMENT_SOURCES[environmentSource] ? environmentSource : "sensors",
       forecast_mode: RADARWISE_FORECAST_MODES[forecastMode] ? forecastMode : "auto",
+      hourly_entity: String(config.hourly_entity || "").trim(),
+      daily_entity: String(config.daily_entity || "").trim(),
+      precipitation_unit: ["auto", "mm", "in"].includes(config.precipitation_unit) ? config.precipitation_unit : "auto",
+      font_scale: Math.max(0.7, Math.min(1.5, this._numberOr(config.font_scale, 1) || 1)),
+      forecast_layout: config.forecast_layout === "paired" ? "paired" : "sequential",
       latitude: this._numberOr(config.latitude, undefined),
       longitude: this._numberOr(config.longitude, undefined),
       hourly_count: Math.max(1, Math.min(24, Number(config.hourly_count) || 5)),
@@ -1515,24 +1527,51 @@ class RadarWiseCard extends HTMLElement {
     return capabilities ? types.filter((type) => capabilities[type]) : types;
   }
 
+  _forecastSourceKey() {
+    const config = this._config || {};
+    return JSON.stringify([config.entity, config.hourly_entity || "", config.daily_entity || "", config.forecast_mode || "auto"]);
+  }
+
+  _normalizeForecastUnits(periods, sourceAttrs, targetAttrs) {
+    const source = this._unitContext(sourceAttrs);
+    const target = this._unitContext(targetAttrs);
+    const units = { ...source, temperatureUnit: target.sourceTemperatureUnit };
+    return periods.map((period) => {
+      const item = { ...period };
+      for (const key of ["temperature", "templow", "high_temperature", "low_temperature", "native_temperature", "native_templow", "dew_point", "dewpoint", "native_dew_point"]) {
+        if (item[key] != null) item[key] = this._tempValue(item[key], units);
+      }
+      item.precipitation_unit = item.precipitation_unit || item.native_precipitation_unit || source.sourcePrecipitationUnit;
+      return item;
+    });
+  }
+
   async _loadForecasts(entityId) {
     if (!this._hass?.connection?.sendMessagePromise) return;
-    const types = this._forecastTypesToLoad(entityId);
-    const entries = await Promise.all(types.map(async (type) => {
+    const sourceKey = this._forecastSourceKey();
+    const request = this._forecastRequest = (this._forecastRequest || 0) + 1;
+    const hourlyEntity = this._config.hourly_entity || entityId;
+    const dailyEntity = this._config.daily_entity || entityId;
+    const targets = RADARWISE_FORECAST_TYPES.map((type) => [type, type === "hourly" ? hourlyEntity : dailyEntity])
+      .filter(([type, source]) => source && this._forecastTypesToLoad(source).includes(type));
+    const targetAttrs = { ...this._hass.states?.[entityId]?.attributes };
+    const entries = await Promise.all(targets.map(async ([type, source]) => {
+      const sourceAttrs = { ...this._hass.states?.[source]?.attributes };
       try {
         const response = await this._hass.connection.sendMessagePromise({
           type: "call_service",
           domain: "weather",
           service: "get_forecasts",
           service_data: { type },
-          target: { entity_id: entityId },
+          target: { entity_id: source },
           return_response: true
         });
-        return [type, this._extractForecast(response, entityId)];
+        return [type, this._normalizeForecastUnits(this._extractForecast(response, source), sourceAttrs, targetAttrs)];
       } catch (err) {
         return [type, []];
       }
     }));
+    if (request !== this._forecastRequest || sourceKey !== this._forecastSourceKey()) return;
     this._forecasts = { hourly: [], daily: [], twice_daily: [], ...Object.fromEntries(entries) };
     this._lastRenderKey = "";
     this._render();
@@ -1543,7 +1582,8 @@ class RadarWiseCard extends HTMLElement {
     if (Array.isArray(response)) return response;
     if (Array.isArray(response.forecast)) return response.forecast;
     const serviceResponse = response.service_response || response.response || response;
-    const byEntity = serviceResponse?.[entityId] || Object.values(serviceResponse || {})[0];
+    if (Array.isArray(serviceResponse.forecast)) return serviceResponse.forecast;
+    const byEntity = serviceResponse?.[entityId];
     return Array.isArray(byEntity?.forecast) ? byEntity.forecast : [];
   }
 
@@ -1647,12 +1687,12 @@ class RadarWiseCard extends HTMLElement {
     if (this._config.forecast_mode === "daily") {
       if (daily.length) return daily;
       const combined = this._dailyPeriodsFromTwiceDaily(twiceDaily);
-      return combined.length ? combined : hourly;
+      return combined;
     }
     if (this._config.forecast_mode === "twice_daily") {
-      return twiceDaily.length ? twiceDaily : daily.length ? daily : hourly;
+      return twiceDaily.length ? twiceDaily : daily;
     }
-    return twiceDaily.length ? twiceDaily : daily.length ? daily : hourly;
+    return twiceDaily.length ? twiceDaily : daily;
   }
 
   _dailyPeriodsFromTwiceDaily(periods = []) {
@@ -1736,8 +1776,8 @@ class RadarWiseCard extends HTMLElement {
     const dewPointInfo = this._dewPointInfo(attrs, units, forecastSources);
     const humidity = humidityInfo.display;
     const dewPoint = dewPointInfo.display;
-    const timeline = hourly.length ? hourly : twiceDaily.length ? twiceDaily : daily;
-    const timelineMode = hourly.length ? "hourly" : twiceDaily.length ? "twice_daily" : daily.length ? "daily" : "hourly";
+    const timeline = hourly;
+    const timelineMode = "hourly";
     const mainPeriods = this._mainForecastPeriods(hourly, daily, twiceDaily);
     const hiLo = this._formatHiLo(daily, hourly, units);
     const sun = sunStateObj?.attributes || {};
@@ -1755,7 +1795,7 @@ class RadarWiseCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>${this._styles()}</style>
-      <ha-card style="--radarwise-font-family:${_wwEscape(RADARWISE_FONT_STACKS[this._config.font_family] || RADARWISE_FONT_STACKS.auto)}">
+      <ha-card style="--ww-font-scale:${this._config.font_scale};--radarwise-font-family:${_wwEscape(RADARWISE_FONT_STACKS[this._config.font_family] || RADARWISE_FONT_STACKS.auto)}">
         <div class="card-outer">
           <div class="card-grid layout-${_wwEscape(layout)} content-${_wwEscape(content.mode)} density-${_wwEscape(density)} panels-${content.panelCount} ${content.right ? "" : "no-radar"} ${content.timeline ? "" : "no-timeline"} ${content.forecast ? "" : "no-forecast"} ${content.left ? "" : "no-left"} ${content.center ? "" : "no-center"}" style="${(() => {
   const w = this._config.column_widths || [25,50,25];
@@ -1813,7 +1853,7 @@ class RadarWiseCard extends HTMLElement {
                     </div>
                   </div>
                 ` : ""}
-                ${content.forecast ? `<div class="daily-strip">${this._renderDaily(mainPeriods, units)}</div>` : ""}
+                ${content.forecast ? `<div class="daily-strip ${this._pairedForecast(mainPeriods) ? "daily-paired" : ""}">${this._renderDaily(mainPeriods, units)}</div>` : ""}
                 ${content.stats ? this._renderDetailsGrid(this._weatherDetailTiles({ text, humidity, dewPoint, wind, sun })) : ""}
               </section>
             ` : ""}
@@ -2112,9 +2152,35 @@ class RadarWiseCard extends HTMLElement {
     return day;
   }
 
+  _pairedForecast(periods) {
+    return this._config.forecast_layout === "paired" && periods.length > 0 && periods.every((item) => typeof item.is_daytime === "boolean");
+  }
+
+  _pairedForecastDays(periods) {
+    const days = new Map();
+    for (const item of [...periods].sort((a, b) => new Date(a.datetime) - new Date(b.datetime))) {
+      const key = this._forecastDateKey(item.datetime);
+      if (!key) continue;
+      if (!days.has(key)) days.set(key, {});
+      const day = days.get(key);
+      const slot = item.is_daytime ? "day" : "night";
+      if (!day[slot]) day[slot] = item;
+    }
+    return [...days.values()].slice(0, Number(this._config.forecast_count) || 5);
+  }
+
   _renderDaily(periods, units) {
     if (!periods.length) return `<div class="loading-note">${_wwEscape(this._t("waitingForecast"))}</div>`;
-    return periods.slice(0, Number(this._config.forecast_count) || 5).map((item) => {
+    if (this._pairedForecast(periods)) {
+      return this._pairedForecastDays(periods).map(({ day, night }) => `<div class="fc-day-column">
+        ${day ? this._renderForecastSlot(day, units) : '<div class="fc-empty" aria-hidden="true"></div>'}
+        ${night ? this._renderForecastSlot(night, units) : '<div class="fc-empty" aria-hidden="true"></div>'}
+      </div>`).join("");
+    }
+    return periods.slice(0, Number(this._config.forecast_count) || 5).map((item) => this._renderForecastSlot(item, units)).join("");
+  }
+
+  _renderForecastSlot(item, units) {
       const period = item.is_daytime === undefined ? "" : item.is_daytime ? this._t("dayPeriod") : this._t("nightPeriod");
       const range = this._forecastRange(item, units);
       return `
@@ -2126,17 +2192,18 @@ class RadarWiseCard extends HTMLElement {
           <div class="fc-icon">${this._icon(item.condition || item.state, 48)}</div>
           <div class="fc-temp">${this._displayTemp(item.temperature, units, false)}</div>
           ${range ? `<div class="fc-range">${_wwEscape(range)}</div>` : ""}
-          <div class="fc-precip">${this._formatPrecip(item, units)}</div>
+          <div class="fc-precip">${_wwEscape(this._formatPrecip(item, units))}</div>
         </div>
       `;
-    }).join("");
   }
 
   _forecastRange(item, units) {
     const high = this._tempValue(item?.temperature ?? item?.high_temperature ?? item?.native_temperature, units);
     const low = this._tempValue(item?.templow ?? item?.low_temperature ?? item?.native_templow, units);
-    if (!Number.isFinite(high) || !Number.isFinite(low)) return "";
-    return `${Math.round(high)}° / ${Math.round(low)}°`;
+    if (!Number.isFinite(high) && !Number.isFinite(low)) return "";
+    const highText = Number.isFinite(high) ? `${Math.round(high)}°` : "--°";
+    const lowText = Number.isFinite(low) ? `${Math.round(low)}°` : "--°";
+    return `${highText} / ${lowText}`;
   }
 
   _forecastSummary({ hourly, daily, twiceDaily, units, condition }) {
@@ -3423,11 +3490,16 @@ class RadarWiseCard extends HTMLElement {
   _unitContext(attrs) {
     const nativeTemp = this._normalizedTempUnit(attrs.temperature_unit || attrs.native_temperature_unit || this._hass?.config?.unit_system?.temperature || "°F");
     const target = this._config.units === "metric" ? "°C" : this._config.units === "imperial" ? "°F" : nativeTemp;
+    const sourcePrecip = attrs.precipitation_unit || attrs.native_precipitation_unit || this._hass?.config?.unit_system?.accumulated_precipitation || (nativeTemp === "°C" ? "mm" : "in");
+    const targetPrecip = this._config.precipitation_unit !== "auto" && this._config.precipitation_unit
+      ? this._config.precipitation_unit
+      : this._config.units === "metric" ? "mm" : this._config.units === "imperial" ? "in" : sourcePrecip;
     return {
       sourceTemperatureUnit: nativeTemp,
       temperatureUnit: target,
       windSpeedUnit: attrs.wind_speed_unit || (target === "°C" ? "km/h" : "mph"),
-      precipitationUnit: attrs.precipitation_unit || attrs.native_precipitation_unit || (target === "°C" ? "mm" : "in")
+      sourcePrecipitationUnit: sourcePrecip,
+      precipitationUnit: targetPrecip
     };
   }
 
@@ -3483,7 +3555,15 @@ class RadarWiseCard extends HTMLElement {
     const amount = this._precipAmount(item);
     const parts = [];
     if (Number.isFinite(probability)) parts.push(`${Math.round(probability)}%`);
-    if (Number.isFinite(amount.value)) parts.push(this._formatPrecipAmount(amount.value, amount.unit || units.precipitationUnit));
+    if (Number.isFinite(amount.value)) {
+      const source = amount.unit || units.sourcePrecipitationUnit || units.precipitationUnit;
+      const target = units.precipitationUnit;
+      const millimeters = { mm: 1, cm: 10, m: 1000, in: 25.4, inch: 25.4, inches: 25.4 };
+      const fromFactor = millimeters[String(source).toLowerCase()];
+      const toFactor = millimeters[String(target).toLowerCase()];
+      const convertible = Number.isFinite(fromFactor) && Number.isFinite(toFactor);
+      parts.push(this._formatPrecipAmount(convertible ? amount.value * fromFactor / toFactor : amount.value, convertible ? target : source));
+    }
     return parts.length ? parts.join(" / ") : "";
   }
 
@@ -3700,6 +3780,7 @@ class RadarWiseCard extends HTMLElement {
   }
 
   _numberOr(value, fallback) {
+    if (value === null || value === undefined || value === "") return fallback;
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
@@ -3919,64 +4000,64 @@ class RadarWiseCard extends HTMLElement {
       .clock-context.no-env{display:block;margin-bottom:0}
       .clock-main{min-width:0}
       .clock-row{display:flex;align-items:baseline;gap:8px;line-height:1}
-      .clock-time{font-size:78px;font-weight:550;color:var(--ww-text);letter-spacing:0}
-      .clock-ampm{font-size:22px;font-weight:850;color:var(--ww-muted)}
-      .clock-date{font-size:19px;color:var(--ww-muted);font-weight:850;margin-top:10px;margin-bottom:0}
+      .clock-time{font-size:calc(78px * var(--ww-font-scale,1));font-weight:550;color:var(--ww-text);letter-spacing:0}
+      .clock-ampm{font-size:calc(22px * var(--ww-font-scale,1));font-weight:850;color:var(--ww-muted)}
+      .clock-date{font-size:calc(19px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:850;margin-top:10px;margin-bottom:0}
       .clock-context.no-env .clock-date{margin-bottom:16px}
       .environment-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;min-width:0}
       .env-tile{display:grid;grid-template-columns:25px minmax(0,1fr);align-items:center;gap:8px;min-width:0;min-height:56px;padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.25);border:1px solid var(--ww-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
       .env-ico{width:25px;height:25px;color:var(--ww-wave);display:grid;place-items:center}
       .env-ico svg{width:25px;height:25px}
       .env-copy{min-width:0}
-      .env-lbl{font-size:10px;line-height:1.05;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .env-val{font-size:16px;line-height:1.05;color:var(--ww-text);font-weight:950;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .env-note{font-size:10px;line-height:1.05;color:var(--ww-muted);font-weight:850;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .env-lbl{font-size:calc(10px * var(--ww-font-scale,1));line-height:1.05;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .env-val{font-size:calc(16px * var(--ww-font-scale,1));line-height:1.05;color:var(--ww-text);font-weight:950;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .env-note{font-size:calc(10px * var(--ww-font-scale,1));line-height:1.05;color:var(--ww-muted);font-weight:850;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .env-good{border-color:rgba(34,197,94,.24)}.env-good .env-note{color:#166534}
       .env-moderate{border-color:rgba(234,179,8,.28)}.env-moderate .env-note{color:#854d0e}
       .env-sensitive,.env-unhealthy,.env-very-high,.env-hazardous{border-color:rgba(185,28,28,.30);background:rgba(254,242,242,.32)}
       .env-sensitive .env-note,.env-unhealthy .env-note,.env-very-high .env-note,.env-hazardous .env-note{color:#7f1d1d}
       .forecast-summary{container-type:inline-size;margin:0 0 14px;min-height:30px;max-width:100%;overflow:hidden;border:1px solid var(--ww-line);border-radius:999px;background:rgba(255,255,255,.20);box-shadow:inset 0 1px 0 rgba(255,255,255,.20);mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
-      .forecast-summary-text{display:inline-block;padding:7px 18px;font-size:13px;line-height:1.15;color:var(--ww-muted);font-weight:900;white-space:nowrap}
+      .forecast-summary-text{display:inline-block;padding:7px 18px;font-size:calc(13px * var(--ww-font-scale,1));line-height:1.15;color:var(--ww-muted);font-weight:900;white-space:nowrap}
       :host([animations]) .forecast-summary-text{animation:ww-summary-drift 34s linear infinite}
       .forecast-summary:hover .forecast-summary-text{animation-play-state:paused}
-      .section-title,.current-label{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:850;white-space:nowrap}
+      .section-title,.current-label{font-size:calc(16px * var(--ww-font-scale,1));letter-spacing:.08em;text-transform:uppercase;color:var(--ww-muted);font-weight:850;white-space:nowrap}
       .hourly-left{display:flex;flex:1;min-height:0;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:2px}
       .hourly-left::-webkit-scrollbar{display:none}
       .hour-row{display:grid;grid-template-columns:54px 26px 48px minmax(58px,1fr) minmax(42px,max-content);align-items:center;gap:9px;flex:1 1 calc(100% / var(--ww-hourly-count,5));min-height:34px;max-height:54px;padding:5px 10px;border-radius:10px;background:var(--ww-panel);border:1px solid var(--ww-line)}
-      .hour-time-left{font-size:15px;color:var(--ww-muted);font-weight:850;text-transform:uppercase}
+      .hour-time-left{font-size:calc(15px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:850;text-transform:uppercase}
       .hour-icon-left{width:25px;height:25px;display:flex;align-items:center;justify-content:center}
-      .hour-temp-left{font-size:16px;font-weight:900;color:var(--ww-text);text-align:right}
+      .hour-temp-left{font-size:calc(16px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-text);text-align:right}
       .hour-bar-wrap{height:8px;border-radius:999px;background:rgba(18,59,83,0.10);position:relative;overflow:hidden}
       .hour-bar-fill{position:absolute;top:0;left:0;height:100%;border-radius:999px;background:linear-gradient(90deg,#58b7c7,var(--ww-wave))}
-      .hour-precip{font-size:12px;font-weight:900;color:var(--ww-muted);white-space:nowrap;text-align:right;min-width:0}
+      .hour-precip{font-size:calc(12px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-muted);white-space:nowrap;text-align:right;min-width:0}
       .center{min-width:0;display:flex;flex-direction:column;padding:18px 24px;border-right:1px solid rgba(255,255,255,0.22);overflow:hidden;container-type:inline-size;container-name:ww-center}
       .current-row{display:flex;align-items:center;gap:18px;margin-bottom:12px;min-width:0;min-height:86px;overflow:visible}
       .current-icon{width:72px;height:72px;flex-shrink:0;display:grid;place-items:center}
       .cond-block{flex:1;min-width:0}
       .cond-name-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
-      .cond-name{font-size:36px;font-weight:800;color:var(--ww-text);line-height:1.05;overflow-wrap:anywhere}
+      .cond-name{font-size:calc(36px * var(--ww-font-scale,1));font-weight:800;color:var(--ww-text);line-height:1.05;overflow-wrap:anywhere}
       .current-uv{display:inline-grid;grid-template-columns:auto auto;grid-template-areas:"label value" "note note";align-items:center;column-gap:6px;row-gap:1px;padding:5px 9px;border:1px solid var(--ww-line);border-radius:999px;background:rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.20);line-height:1;white-space:nowrap}
-      .current-uv span{grid-area:label;font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--ww-muted)}
-      .current-uv strong{grid-area:value;font-size:16px;font-weight:950;color:var(--ww-text)}
-      .current-uv em{grid-area:note;font-size:10px;font-style:normal;font-weight:850;color:var(--ww-muted);text-align:right}
+      .current-uv span{grid-area:label;font-size:calc(10px * var(--ww-font-scale,1));font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--ww-muted)}
+      .current-uv strong{grid-area:value;font-size:calc(16px * var(--ww-font-scale,1));font-weight:950;color:var(--ww-text)}
+      .current-uv em{grid-area:note;font-size:calc(10px * var(--ww-font-scale,1));font-style:normal;font-weight:850;color:var(--ww-muted);text-align:right}
       .uv-good{border-color:rgba(34,197,94,.24)}.uv-good em{color:#166534}
       .uv-moderate{border-color:rgba(234,179,8,.28)}.uv-moderate em{color:#854d0e}
       .uv-unhealthy,.uv-very-high,.uv-hazardous{border-color:rgba(185,28,28,.30);background:rgba(254,242,242,.32)}
       .uv-unhealthy em,.uv-very-high em,.uv-hazardous em{color:#7f1d1d}
-      .updated-note{font-size:14px;color:var(--ww-muted);font-weight:850;margin-top:7px;text-transform:uppercase;letter-spacing:.04em}
+      .updated-note{font-size:calc(14px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:850;margin-top:7px;text-transform:uppercase;letter-spacing:.04em}
       .temp-block{text-align:right;flex-shrink:0;min-width:max-content}
-      .temp-now{font-size:66px;font-weight:800;color:var(--ww-text);line-height:1.08;letter-spacing:0}
-      .temp-feels{font-size:13px;color:var(--ww-muted);font-weight:850;margin-top:3px;text-transform:uppercase;letter-spacing:.035em}
-      .temp-hilo{font-size:20px;color:var(--ww-muted);font-weight:800;margin-top:6px}
+      .temp-now{font-size:calc(66px * var(--ww-font-scale,1));font-weight:800;color:var(--ww-text);line-height:1.08;letter-spacing:0}
+      .temp-feels{font-size:calc(13px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:850;margin-top:3px;text-transform:uppercase;letter-spacing:.035em}
+      .temp-hilo{font-size:calc(20px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:800;margin-top:6px}
       .daily-strip{display:grid;grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(0,1fr));gap:12px;min-height:188px;max-height:232px;margin-bottom:12px;flex:1}
       .fc-slot{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:10px 8px;background:var(--ww-panel);border-radius:14px;border:1px solid var(--ww-line);min-width:0}
-      .fc-day{font-size:22px;font-weight:850;color:var(--ww-text);text-transform:uppercase;line-height:1.05;text-align:center}
-      .fc-period{font-size:14px;font-weight:900;color:var(--ww-muted);text-transform:uppercase;letter-spacing:.045em;margin-top:2px;min-height:16px;line-height:1.05;text-align:center}
+      .fc-day{font-size:calc(22px * var(--ww-font-scale,1));font-weight:850;color:var(--ww-text);text-transform:uppercase;line-height:1.05;text-align:center}
+      .fc-period{font-size:calc(14px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-muted);text-transform:uppercase;letter-spacing:.045em;margin-top:2px;min-height:16px;line-height:1.05;text-align:center}
       .fc-icon{width:64px;height:64px;margin:4px 0 2px;display:flex;align-items:center;justify-content:center}
       .fc-icon svg{width:60px;height:60px}
-      .fc-temp{font-size:48px;font-weight:900;color:var(--ww-text);letter-spacing:0;line-height:.95}
-      .fc-range{font-size:13px;font-weight:900;color:var(--ww-muted);line-height:1;min-height:14px;text-align:center;white-space:nowrap}
-      .fc-precip{font-size:12px;font-weight:900;color:var(--ww-muted);line-height:1;min-height:13px;text-align:center;white-space:nowrap}
+      .fc-temp{font-size:calc(48px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-text);letter-spacing:0;line-height:.95}
+      .fc-range{font-size:calc(13px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-muted);line-height:1;min-height:14px;text-align:center;white-space:nowrap}
+      .fc-precip{font-size:calc(12px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-muted);line-height:1;min-height:13px;text-align:center;white-space:nowrap}
       .details-grid,.stats-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:6px;flex-shrink:0}
       .custom-sensors-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px;margin-top:10px;flex-shrink:0}
       .stat{background:var(--ww-panel);border:1px solid var(--ww-line);border-radius:12px;padding:10px 13px;display:flex;align-items:center;gap:11px;min-height:66px;min-width:0}
@@ -3985,8 +4066,8 @@ class RadarWiseCard extends HTMLElement {
       .stat-ico svg{width:27px;height:27px}
       .stat-ico ha-icon{width:27px;height:27px;color:var(--ww-wave)}
       .custom-sensor-stat{min-height:60px}
-      .stat-lbl{font-size:12px;color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-      .stat-val{font-size:19px;font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
+      .stat-lbl{font-size:calc(12px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+      .stat-val{font-size:calc(19px * var(--ww-font-scale,1));font-weight:900;color:var(--ww-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;word-break:normal;line-height:1.08}
       .ww-icon{overflow:visible;transform-box:fill-box}
       :host([animations]) .current-icon .ww-icon{filter:drop-shadow(0 8px 14px rgba(42,122,148,.14))}
       :host([animations]) .ww-sun-rays{transform-origin:32px 32px;animation:ww-sun-spin 28s linear infinite}
@@ -4053,8 +4134,8 @@ class RadarWiseCard extends HTMLElement {
       .leaflet-control-attribution{position:absolute;right:0;bottom:0;margin:0;padding:2px 6px;max-width:min(72%,420px);max-height:38px;overflow:auto;text-align:right;white-space:normal;scrollbar-width:none;border-radius:8px 0 0 0}
       .leaflet-control-attribution::-webkit-scrollbar{display:none}
       .leaflet-control-attribution a{white-space:nowrap}
-      .radar-lbl{position:absolute;bottom:10px;left:12px;font-size:12px;color:rgba(10,30,46,0.76);background:rgba(255,255,255,0.78);border:1px solid rgba(255,255,255,0.55);padding:4px 10px;border-radius:99px;font-weight:800;z-index:1000;pointer-events:none}
-      .radar-alert{position:absolute;top:10px;left:54px;right:126px;max-width:max-content;font-size:12px;color:#7f1d1d;background:rgba(254,242,242,.9);border:1px solid rgba(185,28,28,.28);box-shadow:0 2px 10px rgba(127,29,29,.12);padding:5px 10px;border-radius:99px;font-weight:900;z-index:1000;pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+      .radar-lbl{position:absolute;bottom:10px;left:12px;font-size:calc(12px * var(--ww-font-scale,1));color:rgba(10,30,46,0.76);background:rgba(255,255,255,0.78);border:1px solid rgba(255,255,255,0.55);padding:4px 10px;border-radius:99px;font-weight:800;z-index:1000;pointer-events:none}
+      .radar-alert{position:absolute;top:10px;left:54px;right:126px;max-width:max-content;font-size:calc(12px * var(--ww-font-scale,1));color:#7f1d1d;background:rgba(254,242,242,.9);border:1px solid rgba(185,28,28,.28);box-shadow:0 2px 10px rgba(127,29,29,.12);padding:5px 10px;border-radius:99px;font-weight:900;z-index:1000;pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
       .radar-alert:focus-visible{outline:2px solid #b91c1c;outline-offset:2px}
       .radar-alert[hidden]{display:none}
       .radar-controls{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:1001}
@@ -4081,19 +4162,19 @@ class RadarWiseCard extends HTMLElement {
       .alert-popup-item{min-width:0}
       .alert-popup-item+.alert-popup-item{border-top:1px solid rgba(10,30,46,.12);padding-top:10px}
       .alert-popup-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:900}
-      .alert-popup-count{font-size:11px;color:#7f1d1d;background:rgba(254,242,242,.86);border:1px solid rgba(185,28,28,.20);border-radius:999px;padding:1px 7px;white-space:nowrap}
+      .alert-popup-count{font-size:calc(11px * var(--ww-font-scale,1));color:#7f1d1d;background:rgba(254,242,242,.86);border:1px solid rgba(185,28,28,.20);border-radius:999px;padding:1px 7px;white-space:nowrap}
       .alert-popup-headline{margin-top:4px}
       .alert-popup-severity{margin-top:4px;color:rgba(10,30,46,.74);font-weight:750}
       .leaflet-popup-tip-container{width:40px;height:20px;position:absolute;left:50%;margin-left:-20px;overflow:hidden;pointer-events:none}
       .leaflet-popup-tip{width:14px;height:14px;padding:1px;margin:-8px auto 0;background:rgba(255,255,255,.96);transform:rotate(45deg);box-shadow:0 4px 14px rgba(10,30,46,.18)}
       .leaflet-popup-close-button{position:absolute;top:4px;right:8px;border:0;background:transparent;color:#0a1e2e;text-decoration:none;font-size:18px;font-weight:900;line-height:1;cursor:pointer}
-      .loading-note{font-size:12px;color:var(--ww-muted);font-weight:800;opacity:.8;padding:10px}
+      .loading-note{font-size:calc(12px * var(--ww-font-scale,1));color:var(--ww-muted);font-weight:800;opacity:.8;padding:10px}
       .daily-strip>.loading-note{grid-column:1 / -1;align-self:center}
-      .debug-panel{margin:10px 18px 18px;background:rgba(255,255,255,.78);border:1px solid var(--ww-line);border-radius:14px;padding:0;font-size:12px;color:var(--ww-muted);max-height:min(420px,52vh);overflow:auto;overscroll-behavior:contain;box-shadow:0 10px 24px rgba(10,30,46,.12)}
+      .debug-panel{margin:10px 18px 18px;background:rgba(255,255,255,.78);border:1px solid var(--ww-line);border-radius:14px;padding:0;font-size:calc(12px * var(--ww-font-scale,1));color:var(--ww-muted);max-height:min(420px,52vh);overflow:auto;overscroll-behavior:contain;box-shadow:0 10px 24px rgba(10,30,46,.12)}
       .debug-panel summary{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:6px;padding:9px 12px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--ww-line);cursor:pointer;font-weight:900;color:var(--ww-text)}
       .debug-row{display:grid;grid-template-columns:minmax(130px,220px) minmax(0,1fr);gap:12px;padding:7px 12px;border-bottom:1px solid rgba(10,30,46,.07);align-items:start}
       .debug-row span{font-weight:800;color:var(--ww-muted)}
-      .debug-row code{color:var(--ww-text);white-space:pre-wrap;word-break:break-word;text-align:left;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:11px;line-height:1.35}
+      .debug-row code{color:var(--ww-text);white-space:pre-wrap;word-break:break-word;text-align:left;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:calc(11px * var(--ww-font-scale,1));line-height:1.35}
       .card-grid.no-forecast .daily-strip{display:none}.card-grid.no-forecast .center{justify-content:center}
       .card-grid.panels-1{grid-template-columns:var(--ww-grid-template,1fr)}
       .card-grid.panels-2{grid-template-columns:var(--ww-grid-template,minmax(0,1fr) minmax(0,1fr))}
@@ -4110,25 +4191,25 @@ class RadarWiseCard extends HTMLElement {
       .card-grid.content-essentials{height:var(--radarwise-card-height,clamp(220px,16cqw,320px))}
       .card-grid.content-essentials .center{border-right:0}
       .card-grid.content-essentials .current-row{margin-bottom:10px}
-      @container(max-width:1500px){.card-grid{height:var(--radarwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:70px}.clock-date{font-size:18px;margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:12px}.section-title,.current-label{font-size:15px}.temp-now{font-size:58px}.temp-hilo{font-size:18px}.cond-name{font-size:32px}.updated-note{font-size:13px}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:20px}.fc-period{font-size:13px}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:43px}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:14px}.hour-temp-left{font-size:15px}.hour-precip{font-size:11px}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:11px}.stat-val{font-size:17px}}
-      @container ww-center (max-width:680px){.current-row{gap:14px;min-height:74px}.current-icon{width:58px;height:58px}.cond-name{font-size:clamp(24px,8cqw,32px)}.updated-note{font-size:12px;margin-top:5px}.temp-now{font-size:clamp(42px,12cqw,58px)}.temp-hilo{font-size:16px;margin-top:5px}.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(92px,1fr));gap:8px;min-height:158px;max-height:196px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex:none}.daily-strip::-webkit-scrollbar{display:none}.fc-slot{padding:8px 6px}.fc-day{font-size:18px}.fc-period{font-size:11px;min-height:12px}.fc-icon{width:48px;height:48px;margin:2px 0}.fc-icon svg{width:44px;height:44px}.fc-temp{font-size:34px}.fc-range,.fc-precip{font-size:10px;min-height:11px}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}.custom-sensors-row{margin-top:8px}.stat{min-height:52px;padding:8px 9px;gap:8px}.stat-ico,.stat-ico svg,.stat-ico ha-icon{width:22px;height:22px}.stat-ico{flex-basis:22px}.stat-lbl{font-size:10px;margin-bottom:2px}.stat-val{font-size:clamp(13px,4.8cqw,16px)}}
-      @container ww-center (max-width:480px){.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(86px,1fr));min-height:148px}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-val{font-size:14px}.current-row{align-items:flex-start;flex-wrap:wrap}.temp-block{text-align:left}}
+      @container(max-width:1500px){.card-grid{height:var(--radarwise-card-height,clamp(440px,25cqw,520px))}.left{padding:14px 18px 10px}.center{padding:16px 20px}.clock-time{font-size:calc(70px * var(--ww-font-scale,1))}.clock-date{font-size:calc(18px * var(--ww-font-scale,1));margin-bottom:11px}.forecast-summary{margin-bottom:11px}.forecast-summary-text{font-size:calc(12px * var(--ww-font-scale,1))}.section-title,.current-label{font-size:calc(15px * var(--ww-font-scale,1))}.temp-now{font-size:calc(58px * var(--ww-font-scale,1))}.temp-hilo{font-size:calc(18px * var(--ww-font-scale,1))}.cond-name{font-size:calc(32px * var(--ww-font-scale,1))}.updated-note{font-size:calc(13px * var(--ww-font-scale,1))}.daily-strip{min-height:172px;max-height:212px}.fc-day{font-size:calc(20px * var(--ww-font-scale,1))}.fc-period{font-size:calc(13px * var(--ww-font-scale,1))}.fc-icon{width:58px;height:58px}.fc-icon svg{width:54px;height:54px}.fc-temp{font-size:calc(43px * var(--ww-font-scale,1))}.hour-row{grid-template-columns:50px 24px 42px minmax(52px,1fr) minmax(38px,max-content);gap:7px;min-height:32px}.hour-time-left{font-size:calc(14px * var(--ww-font-scale,1))}.hour-temp-left{font-size:calc(15px * var(--ww-font-scale,1))}.hour-precip{font-size:calc(11px * var(--ww-font-scale,1))}.stat{padding:9px 11px;gap:9px;min-height:62px}.stat-lbl{font-size:calc(11px * var(--ww-font-scale,1))}.stat-val{font-size:calc(17px * var(--ww-font-scale,1))}}
+      @container ww-center (max-width:680px){.current-row{gap:14px;min-height:74px}.current-icon{width:58px;height:58px}.cond-name{font-size:calc(clamp(24px,8cqw,32px) * var(--ww-font-scale,1))}.updated-note{font-size:calc(12px * var(--ww-font-scale,1));margin-top:5px}.temp-now{font-size:calc(clamp(42px,12cqw,58px) * var(--ww-font-scale,1))}.temp-hilo{font-size:calc(16px * var(--ww-font-scale,1));margin-top:5px}.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(92px,1fr));gap:8px;min-height:158px;max-height:196px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex:none}.daily-strip::-webkit-scrollbar{display:none}.fc-slot{padding:8px 6px}.fc-day{font-size:calc(18px * var(--ww-font-scale,1))}.fc-period{font-size:calc(11px * var(--ww-font-scale,1));min-height:12px}.fc-icon{width:48px;height:48px;margin:2px 0}.fc-icon svg{width:44px;height:44px}.fc-temp{font-size:calc(34px * var(--ww-font-scale,1))}.fc-range,.fc-precip{font-size:calc(10px * var(--ww-font-scale,1));min-height:11px}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}.custom-sensors-row{margin-top:8px}.stat{min-height:52px;padding:8px 9px;gap:8px}.stat-ico,.stat-ico svg,.stat-ico ha-icon{width:22px;height:22px}.stat-ico{flex-basis:22px}.stat-lbl{font-size:calc(10px * var(--ww-font-scale,1));margin-bottom:2px}.stat-val{font-size:calc(clamp(13px,4.8cqw,16px) * var(--ww-font-scale,1))}}
+      @container ww-center (max-width:480px){.daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(86px,1fr));min-height:148px}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-val{font-size:calc(14px * var(--ww-font-scale,1))}.current-row{align-items:flex-start;flex-wrap:wrap}.temp-block{text-align:left}}
       @container(max-width:980px){.card-grid:not(.layout-wide_panel){height:var(--radarwise-card-height,clamp(560px,58cqw,680px))}.card-grid:not(.layout-wide_panel) .center{border-right:0}.card-grid:not(.layout-wide_panel) .right{grid-column:1 / -1;height:240px;border-top:1px solid rgba(255,255,255,0.28);border-radius:0 0 22px 22px}.card-grid:not(.layout-wide_panel) #rmap{height:240px}.card-grid:not(.layout-wide_panel) .daily-strip{min-height:150px;max-height:none}}
       .card-grid.layout-wide_panel{height:var(--radarwise-card-height,clamp(390px,22cqw,500px))}
       :host([theme-mode="dark"]) .card-grid.layout-stacked .clock-panel,:host([theme-mode="dark"]) .card-grid.layout-compact .clock-panel{background:linear-gradient(90deg,rgba(51,65,85,.32),rgba(30,41,59,.18))}
-      @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:var(--ww-grid-template,minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%));height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:38px}.card-grid.layout-wide_panel .clock-date{font-size:12px;margin:5px 0 7px}.card-grid.layout-wide_panel .forecast-summary{min-height:26px;margin-bottom:8px}.card-grid.layout-wide_panel .forecast-summary-text{font-size:11px;padding:6px 14px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:21px}.card-grid.layout-wide_panel .temp-now{font-size:38px}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:28px}.card-grid.layout-wide_panel .details-grid,.card-grid.layout-wide_panel .stats-row,.card-grid.layout-wide_panel .custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .custom-sensors-row{margin-top:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
-      @container(max-width:720px){.card-grid.layout-wide_panel .clock-context{grid-template-columns:1fr;gap:6px;margin-bottom:8px}.card-grid.layout-wide_panel .environment-strip{grid-template-columns:1fr;gap:5px}.card-grid.layout-wide_panel .env-tile{grid-template-columns:20px minmax(0,1fr);min-height:40px;padding:5px 7px}.card-grid.layout-wide_panel .env-ico,.card-grid.layout-wide_panel .env-ico svg{width:20px;height:20px}.card-grid.layout-wide_panel .env-lbl,.card-grid.layout-wide_panel .env-note{font-size:9px}.card-grid.layout-wide_panel .env-val{font-size:13px}.card-grid.layout-wide_panel .env-note{display:none}}
+      @container(max-width:720px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:calc(48px * var(--ww-font-scale,1))}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}.card-grid.layout-wide_panel{display:grid;grid-template-columns:var(--ww-grid-template,minmax(120px,24%) minmax(230px,1fr) minmax(150px,28%));height:360px;max-height:360px}.card-grid.layout-wide_panel .left{display:flex;padding:12px 10px}.card-grid.layout-wide_panel .center{padding:12px 10px}.card-grid.layout-wide_panel .clock-time{font-size:calc(38px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .clock-date{font-size:calc(12px * var(--ww-font-scale,1));margin:5px 0 7px}.card-grid.layout-wide_panel .forecast-summary{min-height:26px;margin-bottom:8px}.card-grid.layout-wide_panel .forecast-summary-text{font-size:calc(11px * var(--ww-font-scale,1));padding:6px 14px}.card-grid.layout-wide_panel .current-icon{width:44px;height:44px}.card-grid.layout-wide_panel .cond-name{font-size:calc(21px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .temp-now{font-size:calc(38px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .daily-strip{grid-template-columns:repeat(var(--ww-forecast-count,5),minmax(70px,1fr));gap:6px;overflow:hidden}.card-grid.layout-wide_panel .fc-temp{font-size:calc(28px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .details-grid,.card-grid.layout-wide_panel .stats-row,.card-grid.layout-wide_panel .custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.card-grid.layout-wide_panel .custom-sensors-row{margin-top:6px}.card-grid.layout-wide_panel .right,.card-grid.layout-wide_panel #rmap{height:100%;min-height:0}}
+      @container(max-width:720px){.card-grid.layout-wide_panel .clock-context{grid-template-columns:1fr;gap:6px;margin-bottom:8px}.card-grid.layout-wide_panel .environment-strip{grid-template-columns:1fr;gap:5px}.card-grid.layout-wide_panel .env-tile{grid-template-columns:20px minmax(0,1fr);min-height:40px;padding:5px 7px}.card-grid.layout-wide_panel .env-ico,.card-grid.layout-wide_panel .env-ico svg{width:20px;height:20px}.card-grid.layout-wide_panel .env-lbl,.card-grid.layout-wide_panel .env-note{font-size:calc(9px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .env-val{font-size:calc(13px * var(--ww-font-scale,1))}.card-grid.layout-wide_panel .env-note{display:none}}
       @container(max-width:720px){.card-grid.layout-wide_panel{height:var(--radarwise-card-height,360px);max-height:var(--radarwise-card-max-height,360px)}.card-grid.layout-wide_panel .leaflet-control-attribution{max-width:min(58%,260px);max-height:30px;font-size:9px!important}}
-      @media(max-width:760px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:48px}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
+      @media(max-width:760px){.card-grid:not(.layout-wide_panel),.card-grid.no-radar:not(.layout-wide_panel){display:flex;flex-direction:column;height:auto;max-height:none}.card-grid:not(.layout-wide_panel) .left{display:contents}.card-grid:not(.layout-wide_panel) .clock-panel{order:1;padding:18px 20px 0}.card-grid:not(.layout-wide_panel) .center{order:var(--ww-ord-weather,20);border-right:0;overflow:visible}.card-grid:not(.layout-wide_panel) .left>.section-title{order:var(--ww-ord-clock-title,12);padding:0 20px}.card-grid:not(.layout-wide_panel) .hourly-left{order:var(--ww-ord-clock-hourly,13);flex:none;overflow:visible;padding:0 20px 16px}.card-grid:not(.layout-wide_panel) .right{order:var(--ww-ord-radar,30)}.clock-time{font-size:calc(48px * var(--ww-font-scale,1))}.current-row{align-items:flex-start;gap:12px;flex-wrap:wrap}.temp-block{text-align:left}.card-grid:not(.layout-wide_panel) .daily-strip{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none}.details-grid,.stats-row,.custom-sensors-row{grid-template-columns:repeat(2,minmax(0,1fr))}.right,#rmap{height:300px;min-height:300px}}
       @media(prefers-reduced-motion:reduce){:host([animations]) .ww-sun-rays,:host([animations]) .ww-sun-core,:host([animations]) .ww-cloud,:host([animations]) .ww-rain,:host([animations]) .ww-snow,:host([animations]) .ww-bolt,:host([animations]) .ww-moon,:host([animations]) .ww-moon-glow,:host([animations]) .ww-fog,:host([animations]) .ww-wind,:host([animations]) .hour-row,:host([animations]) .fc-slot,:host([animations]) .forecast-summary-text{animation:none!important}:host([animations]) .hour-bar-fill{transition:none!important}}
       .card-grid.content-radar{height:var(--radarwise-card-height,clamp(310px,20cqw,460px));max-height:var(--radarwise-card-max-height,480px)}
       .card-grid.content-forecast{height:var(--radarwise-card-height,clamp(260px,18cqw,390px));max-height:var(--radarwise-card-max-height,420px)}
       .card-grid.content-timeline{height:var(--radarwise-card-height,clamp(280px,18cqw,420px));max-height:var(--radarwise-card-max-height,440px)}
       .card-grid.content-essentials{height:var(--radarwise-card-height,clamp(220px,16cqw,320px));max-height:var(--radarwise-card-max-height,340px)}
       .card-grid.density-slim{height:var(--radarwise-card-height,clamp(330px,18cqw,430px));max-height:var(--radarwise-card-max-height,450px)}
-      .card-grid.density-slim .left{padding:11px 16px 8px}.card-grid.density-slim .center{padding:12px 18px}.card-grid.density-slim .clock-context{gap:8px;margin-bottom:8px}.card-grid.density-slim .clock-time{font-size:58px}.card-grid.density-slim .clock-ampm{font-size:18px}.card-grid.density-slim .clock-date{font-size:16px;margin-top:7px;margin-bottom:8px}.card-grid.density-slim .environment-strip{gap:6px}.card-grid.density-slim .env-tile{min-height:44px;padding:6px 8px}.card-grid.density-slim .env-ico,.card-grid.density-slim .env-ico svg{width:21px;height:21px}.card-grid.density-slim .env-lbl,.card-grid.density-slim .env-note{font-size:9px}.card-grid.density-slim .env-val{font-size:14px}.card-grid.density-slim .forecast-summary{min-height:25px;margin-bottom:8px}.card-grid.density-slim .forecast-summary-text{font-size:11px;padding:6px 14px}.card-grid.density-slim .section-title,.card-grid.density-slim .current-label{font-size:13px}.card-grid.density-slim .hourly-left{gap:6px}.card-grid.density-slim .hour-row{min-height:28px;max-height:38px;padding:4px 9px;grid-template-columns:46px 22px 38px minmax(45px,1fr) minmax(34px,max-content);gap:6px}.card-grid.density-slim .hour-time-left{font-size:13px}.card-grid.density-slim .hour-temp-left{font-size:14px}.card-grid.density-slim .hour-precip{font-size:10px}.card-grid.density-slim .current-row{min-height:64px;margin-bottom:8px;gap:12px}.card-grid.density-slim .current-icon{width:54px;height:54px}.card-grid.density-slim .cond-name{font-size:27px}.card-grid.density-slim .updated-note{font-size:11px;margin-top:4px}.card-grid.density-slim .temp-now{font-size:48px}.card-grid.density-slim .temp-hilo{font-size:15px;margin-top:4px}.card-grid.density-slim .daily-strip{min-height:130px;max-height:170px;gap:8px;margin-bottom:8px}.card-grid.density-slim .fc-slot{padding:7px 6px}.card-grid.density-slim .fc-day{font-size:17px}.card-grid.density-slim .fc-period{font-size:11px;min-height:12px}.card-grid.density-slim .fc-icon{width:46px;height:46px;margin:2px 0}.card-grid.density-slim .fc-icon svg{width:44px;height:44px}.card-grid.density-slim .fc-temp{font-size:34px}.card-grid.density-slim .fc-range,.card-grid.density-slim .fc-precip{font-size:10px;min-height:11px}.card-grid.density-slim .details-grid,.card-grid.density-slim .stats-row,.card-grid.density-slim .custom-sensors-row{gap:7px}.card-grid.density-slim .custom-sensors-row{margin-top:7px}.card-grid.density-slim .stat{min-height:48px;padding:7px 9px;gap:8px}.card-grid.density-slim .stat-ico,.card-grid.density-slim .stat-ico svg,.card-grid.density-slim .stat-ico ha-icon{width:22px;height:22px;flex-basis:22px}.card-grid.density-slim .stat-lbl{font-size:10px;margin-bottom:2px}.card-grid.density-slim .stat-val{font-size:15px}
+      .card-grid.density-slim .left{padding:11px 16px 8px}.card-grid.density-slim .center{padding:12px 18px}.card-grid.density-slim .clock-context{gap:8px;margin-bottom:8px}.card-grid.density-slim .clock-time{font-size:calc(58px * var(--ww-font-scale,1))}.card-grid.density-slim .clock-ampm{font-size:calc(18px * var(--ww-font-scale,1))}.card-grid.density-slim .clock-date{font-size:calc(16px * var(--ww-font-scale,1));margin-top:7px;margin-bottom:8px}.card-grid.density-slim .environment-strip{gap:6px}.card-grid.density-slim .env-tile{min-height:44px;padding:6px 8px}.card-grid.density-slim .env-ico,.card-grid.density-slim .env-ico svg{width:21px;height:21px}.card-grid.density-slim .env-lbl,.card-grid.density-slim .env-note{font-size:calc(9px * var(--ww-font-scale,1))}.card-grid.density-slim .env-val{font-size:calc(14px * var(--ww-font-scale,1))}.card-grid.density-slim .forecast-summary{min-height:25px;margin-bottom:8px}.card-grid.density-slim .forecast-summary-text{font-size:calc(11px * var(--ww-font-scale,1));padding:6px 14px}.card-grid.density-slim .section-title,.card-grid.density-slim .current-label{font-size:calc(13px * var(--ww-font-scale,1))}.card-grid.density-slim .hourly-left{gap:6px}.card-grid.density-slim .hour-row{min-height:28px;max-height:38px;padding:4px 9px;grid-template-columns:46px 22px 38px minmax(45px,1fr) minmax(34px,max-content);gap:6px}.card-grid.density-slim .hour-time-left{font-size:calc(13px * var(--ww-font-scale,1))}.card-grid.density-slim .hour-temp-left{font-size:calc(14px * var(--ww-font-scale,1))}.card-grid.density-slim .hour-precip{font-size:calc(10px * var(--ww-font-scale,1))}.card-grid.density-slim .current-row{min-height:64px;margin-bottom:8px;gap:12px}.card-grid.density-slim .current-icon{width:54px;height:54px}.card-grid.density-slim .cond-name{font-size:calc(27px * var(--ww-font-scale,1))}.card-grid.density-slim .updated-note{font-size:calc(11px * var(--ww-font-scale,1));margin-top:4px}.card-grid.density-slim .temp-now{font-size:calc(48px * var(--ww-font-scale,1))}.card-grid.density-slim .temp-hilo{font-size:calc(15px * var(--ww-font-scale,1));margin-top:4px}.card-grid.density-slim .daily-strip{min-height:130px;max-height:170px;gap:8px;margin-bottom:8px}.card-grid.density-slim .fc-slot{padding:7px 6px}.card-grid.density-slim .fc-day{font-size:calc(17px * var(--ww-font-scale,1))}.card-grid.density-slim .fc-period{font-size:calc(11px * var(--ww-font-scale,1));min-height:12px}.card-grid.density-slim .fc-icon{width:46px;height:46px;margin:2px 0}.card-grid.density-slim .fc-icon svg{width:44px;height:44px}.card-grid.density-slim .fc-temp{font-size:calc(34px * var(--ww-font-scale,1))}.card-grid.density-slim .fc-range,.card-grid.density-slim .fc-precip{font-size:calc(10px * var(--ww-font-scale,1));min-height:11px}.card-grid.density-slim .details-grid,.card-grid.density-slim .stats-row,.card-grid.density-slim .custom-sensors-row{gap:7px}.card-grid.density-slim .custom-sensors-row{margin-top:7px}.card-grid.density-slim .stat{min-height:48px;padding:7px 9px;gap:8px}.card-grid.density-slim .stat-ico,.card-grid.density-slim .stat-ico svg,.card-grid.density-slim .stat-ico ha-icon{width:22px;height:22px;flex-basis:22px}.card-grid.density-slim .stat-lbl{font-size:calc(10px * var(--ww-font-scale,1));margin-bottom:2px}.card-grid.density-slim .stat-val{font-size:calc(15px * var(--ww-font-scale,1))}
       .card-grid.density-large{height:var(--radarwise-card-height,clamp(500px,28cqw,620px));max-height:var(--radarwise-card-max-height,660px)}
-      .card-grid.density-large .clock-time{font-size:88px}.card-grid.density-large .clock-date{font-size:22px}.card-grid.density-large .cond-name{font-size:42px}.card-grid.density-large .temp-now{font-size:78px}.card-grid.density-large .daily-strip{min-height:220px;max-height:270px}.card-grid.density-large .fc-temp{font-size:58px}.card-grid.density-large .stat{min-height:76px}.card-grid.density-large .stat-val{font-size:22px}
+      .card-grid.density-large .clock-time{font-size:calc(88px * var(--ww-font-scale,1))}.card-grid.density-large .clock-date{font-size:calc(22px * var(--ww-font-scale,1))}.card-grid.density-large .cond-name{font-size:calc(42px * var(--ww-font-scale,1))}.card-grid.density-large .temp-now{font-size:calc(78px * var(--ww-font-scale,1))}.card-grid.density-large .daily-strip{min-height:220px;max-height:270px}.card-grid.density-large .fc-temp{font-size:calc(58px * var(--ww-font-scale,1))}.card-grid.density-large .stat{min-height:76px}.card-grid.density-large .stat-val{font-size:calc(22px * var(--ww-font-scale,1))}
       .card-grid.content-radar.density-slim{height:var(--radarwise-card-height,clamp(230px,16cqw,360px))}
       .card-grid.content-forecast.density-slim{height:var(--radarwise-card-height,clamp(210px,15cqw,320px))}
       .card-grid.content-timeline.density-slim{height:var(--radarwise-card-height,clamp(220px,15cqw,340px))}
@@ -4145,8 +4226,11 @@ class RadarWiseCard extends HTMLElement {
       .card-grid.content-radar .right,.card-grid.content-forecast .center,.card-grid.content-timeline .left,.card-grid.content-essentials .center{grid-column:1;grid-row:1;border-right:0;border-radius:22px}
       .card-grid.content-timeline .left{display:flex;flex-direction:column;padding:18px 22px 14px;overflow:hidden;background:linear-gradient(90deg,rgba(255,255,255,0.20),rgba(255,255,255,0.08))}
       .card-grid.content-radar .right,.card-grid.content-radar #rmap{height:100%;min-height:0}
-      @container(max-width:600px){.clock-context{grid-template-columns:1fr}.environment-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.clock-time{font-size:58px}.clock-ampm{font-size:17px}.temp-now{font-size:46px}.temp-hilo{font-size:17px;margin-top:5px}.cond-name{font-size:26px}.current-icon{width:54px;height:54px}.current-row{gap:10px;flex-wrap:wrap}.temp-block{min-width:unset}.center{padding:14px 18px}.updated-note{font-size:12px;margin-top:4px}}
-      @container(max-width:420px){.clock-time{font-size:48px}.temp-now{font-size:38px}.cond-name{font-size:22px}.current-icon{width:46px;height:46px}}
+      @container(max-width:600px){.clock-context{grid-template-columns:1fr}.environment-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.clock-time{font-size:calc(58px * var(--ww-font-scale,1))}.clock-ampm{font-size:calc(17px * var(--ww-font-scale,1))}.temp-now{font-size:calc(46px * var(--ww-font-scale,1))}.temp-hilo{font-size:calc(17px * var(--ww-font-scale,1));margin-top:5px}.cond-name{font-size:calc(26px * var(--ww-font-scale,1))}.current-icon{width:54px;height:54px}.current-row{gap:10px;flex-wrap:wrap}.temp-block{min-width:unset}.center{padding:14px 18px}.updated-note{font-size:calc(12px * var(--ww-font-scale,1));margin-top:4px}}
+      @container(max-width:420px){.clock-time{font-size:calc(48px * var(--ww-font-scale,1))}.temp-now{font-size:calc(38px * var(--ww-font-scale,1))}.cond-name{font-size:calc(22px * var(--ww-font-scale,1))}.current-icon{width:46px;height:46px}}
+      .card-grid .center .daily-strip.daily-paired{display:flex;align-items:stretch;overflow:auto;min-height:0;max-height:none;flex:1 1 auto}
+      .daily-paired .fc-day-column{display:grid;grid-template-rows:minmax(150px,1fr) minmax(150px,1fr);gap:8px;flex:1 0 100px;min-width:0}
+      .daily-paired .fc-slot{min-height:150px;gap:4px}
     `;
   }
 }
@@ -4253,8 +4337,18 @@ class RadarWiseCardEditor extends HTMLElement {
       .join("|");
   }
 
+  _movePanel(key, direction) {
+    const order = (this._config.panel_order || ["clock", "weather", "radar"]).slice();
+    const from = order.indexOf(key);
+    const to = from + direction;
+    if (from < 0 || ![-1, 1].includes(direction) || to < 0 || to >= order.length) return;
+    order.splice(from, 1);
+    order.splice(to, 0, key);
+    this._setValue("panel_order", order);
+  }
+
   _setValue(key, value) {
-    const numberKeys = ["latitude", "longitude", "hourly_count", "forecast_count", "card_height", "card_max_height", "radar_zoom", "radar_speed"];
+    const numberKeys = ["font_scale", "latitude", "longitude", "hourly_count", "forecast_count", "card_height", "card_max_height", "radar_zoom", "radar_speed"];
     const booleanKeys = ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary", "show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset", "show_environment", "show_custom_sensors", "timeline_autoscroll"];
     let nextValue = value;
     if (numberKeys.includes(key)) nextValue = value === "" ? undefined : Number(value);
@@ -4393,7 +4487,11 @@ class RadarWiseCardEditor extends HTMLElement {
         .panel-order-list{display:flex;flex-direction:column;gap:6px}
         .panel-order-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--divider-color,rgba(0,0,0,.15));border-radius:10px;background:var(--card-background-color,#fff);cursor:grab;user-select:none;transition:box-shadow .15s,opacity .15s}
         .panel-order-item:active{cursor:grabbing}
+        .panel-order-item{-webkit-user-select:none}
         .panel-order-item *{pointer-events:none}
+        .panel-order-text{flex:1;min-width:0}
+        .panel-order-item .panel-move{pointer-events:auto;cursor:pointer;min-width:32px;min-height:32px;font:inherit;background:var(--card-background-color,#fff);color:var(--primary-text-color,#0a1e28);border:1px solid var(--divider-color,#ccc);border-radius:6px}
+        .panel-move:disabled{opacity:.4;cursor:default}
         .panel-order-item.drag-over{box-shadow:0 0 0 2px var(--primary-color,#2a7a94);border-color:var(--primary-color,#2a7a94)}
         .panel-order-item.dragging{opacity:.4}
         .drag-handle{font-size:18px;color:var(--secondary-text-color,#536b75);line-height:1;flex-shrink:0}
@@ -4415,6 +4513,15 @@ class RadarWiseCardEditor extends HTMLElement {
               ${weatherOptions}
             </select>
           </label>
+          ${[["hourly_entity", "Hourly forecast entity"], ["daily_entity", "Daily / twice-daily forecast entity"]].map(([key, label]) => `
+            <label>${label}
+              <select id="${key}">
+                <option value="">Use weather entity</option>
+                ${config[key] && !entities.some(([id]) => id === config[key]) ? `<option value="${_wwEscape(config[key])}" selected>${_wwEscape(config[key])}</option>` : ""}
+                ${this._sensorOptions(entities, config[key])}
+              </select>
+            </label>`).join("")}
+          <div class="hint">Use separate forecast entities for integrations such as BOM. Leave blank to use the main weather entity. Missing hourly or daily data is not substituted with the other forecast type.</div>
           <label>Current temperature entity
             <select id="temperature_entity">
               <option value="">Auto from weather entity</option>
@@ -4592,6 +4699,18 @@ class RadarWiseCardEditor extends HTMLElement {
                 <option value="metric" ${config.units === "metric" ? "selected" : ""}>Metric</option>
               </select>
             </label>
+            <label>Rainfall units
+              <select id="precipitation_unit">
+                ${Object.entries({ auto: "Follow units setting", mm: "Millimeters", in: "Inches" }).map(([value, label]) => `<option value="${value}" ${(config.precipitation_unit || "auto") === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </label>
+            <label>Font scale <input id="font_scale" type="number" min="0.7" max="1.5" step="0.05" value="${_wwEscape(config.font_scale ?? 1)}"></label>
+            <label>Forecast arrangement
+              <select id="forecast_layout">
+                <option value="sequential" ${config.forecast_layout !== "paired" ? "selected" : ""}>Sequential (existing layout)</option>
+                <option value="paired" ${config.forecast_layout === "paired" ? "selected" : ""}>Day above night (columns by date)</option>
+              </select>
+            </label>
             <label>Theme
               <select id="theme_mode">
                 ${Object.entries(RADARWISE_THEME_MODES).map(([value, label]) => `<option value="${value}" ${(config.theme_mode || "radarwise") === value ? "selected" : ""}>${label}</option>`).join("")}
@@ -4749,9 +4868,9 @@ class RadarWiseCardEditor extends HTMLElement {
             </button>
           </div>
           <div class="hint" style="margin-top:10px">Auto is recommended for most dashboards — it switches between wide and stacked depending on how much space the card has.</div>
-          <div class="panel-order-label">Panel order — drag to rearrange</div>
+          <div class="panel-order-label">Panel order - drag or use the arrow buttons</div>
           <div class="panel-order-list" id="panel-order-list">
-            ${(config.panel_order || ["clock","weather","radar"]).map((key) => {
+            ${(config.panel_order || ["clock","weather","radar"]).map((key, index) => {
               const meta = {
                 clock:   { name: "Clock & Timeline",    desc: "Time, date, forecast summary, hourly list", icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>` },
                 weather: { name: "Current Weather",     desc: "Condition, temperature, forecast cards, stats", icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="4" fill="#fbbf24"/><path d="M5 17a5 5 0 0 1 14 0" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/></svg>` },
@@ -4760,7 +4879,9 @@ class RadarWiseCardEditor extends HTMLElement {
               return `<div class="panel-order-item" draggable="true" data-panel="${_wwEscape(key)}">
                 <span class="drag-handle" aria-hidden="true">⠿</span>
                 <span class="panel-order-icon" style="color:var(--primary-color,#2a7a94)">${meta.icon}</span>
-                <div><div class="panel-order-name">${_wwEscape(meta.name)}</div><div class="panel-order-desc">${_wwEscape(meta.desc)}</div></div>
+                <div class="panel-order-text"><div class="panel-order-name">${_wwEscape(meta.name)}</div><div class="panel-order-desc">${_wwEscape(meta.desc)}</div></div>
+                <button type="button" class="panel-move" data-move-panel="${_wwEscape(key)}" data-direction="-1" aria-label="Move ${_wwEscape(meta.name)} up" ${index === 0 ? "disabled" : ""}>↑</button>
+                <button type="button" class="panel-move" data-move-panel="${_wwEscape(key)}" data-direction="1" aria-label="Move ${_wwEscape(meta.name)} down" ${index === 2 ? "disabled" : ""}>↓</button>
               </div>`;
             }).join("")}
           </div>
@@ -4817,7 +4938,7 @@ class RadarWiseCardEditor extends HTMLElement {
         </div>
       </div>
     `;
-    ["entity", "temperature_entity", "humidity_entity", "dew_point_entity", "wind_speed_entity", "wind_direction_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "time_zone_mode", "time_zone", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "forecast_mode", "card_height", "card_max_height", "radar_zoom", "radar_speed"].forEach((id) => {
+    ["hourly_entity", "daily_entity", "precipitation_unit", "font_scale", "forecast_layout", "entity", "temperature_entity", "humidity_entity", "dew_point_entity", "wind_speed_entity", "wind_direction_entity", "air_quality_entity", "uv_index_entity", "pollen_entity", "tree_pollen_entity", "grass_pollen_entity", "weed_pollen_entity", "mold_pollen_entity", "environment_source", "country", "radar_provider", "radar_style", "radar_basemap", "radar_timeline", "title", "units", "theme_mode", "language", "time_format", "time_zone_mode", "time_zone", "font_family", "density", "latitude", "longitude", "hourly_count", "forecast_count", "forecast_mode", "card_height", "card_max_height", "radar_zoom", "radar_speed"].forEach((id) => {
       this.shadowRoot.getElementById(id)?.addEventListener("change", (event) => this._setValue(id, event.target.value));
     });
     ["show_radar", "show_map_controls", "radar_controls", "show_warning_overlay", "show_animations", "show_timeline", "show_forecast", "show_forecast_summary", "show_humidity", "show_dew_point", "show_wind", "show_sunrise", "show_sunset", "show_environment", "show_custom_sensors", "timeline_autoscroll"].forEach((id) => {
@@ -4862,15 +4983,26 @@ class RadarWiseCardEditor extends HTMLElement {
         stackVal.textContent = v === 0 ? "Off" : `${v}px`;
       });
     }
+    this.shadowRoot.querySelectorAll("[data-move-panel]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.movePanel;
+        const direction = Number(button.dataset.direction);
+        this._movePanel(key, direction);
+        const buttons = [...this.shadowRoot.querySelectorAll(`[data-move-panel="${key}"]`)];
+        (buttons.find((candidate) => !candidate.disabled && Number(candidate.dataset.direction) === direction) || buttons.find((candidate) => !candidate.disabled))?.focus();
+      });
+    });
     // Drag-to-reorder panel order
     let dragKey = null;
     const allItems = () => this.shadowRoot.querySelectorAll(".panel-order-item");
     const clearOver = () => allItems().forEach((el) => el.classList.remove("drag-over"));
     this.shadowRoot.querySelectorAll(".panel-order-item").forEach((item) => {
       item.addEventListener("dragstart", (e) => {
+        if (e.target.closest?.("button")) { e.preventDefault(); return; }
         dragKey = item.dataset.panel;
         item.classList.add("dragging");
         e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", dragKey);
       });
       item.addEventListener("dragend", () => {
         dragKey = null;

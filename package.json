@@ -1,6 +1,6 @@
 {
   "name": "radarwise-card",
-  "version": "0.8.23",
+  "version": "0.8.24",
   "description": "Radar-forward weather dashboard custom card for Home Assistant with forecasts and alerts.",
   "type": "module",
   "files": [
@@ -15,7 +15,8 @@
     "build": "esbuild src/radarwise-card.js --bundle --format=esm --platform=browser --target=es2020 --outfile=radarwise-card.js --legal-comments=inline",
     "build:check": "npm run build && git diff --exit-code -- radarwise-card.js",
     "check": "node --check src/radarwise-card.js && node --check radarwise-card.js && node --check weatherwise-card.js",
-    "test": "node tests/config-behavior.test.mjs"
+    "test": "node tests/issue-regressions.test.mjs",
+    "test:browser": "node tests/run-issue-browser.mjs"
   },
   "keywords": [
     "home-assistant",
@@ -35,6 +36,7 @@
   "private": false,
   "devDependencies": {
     "esbuild": "0.28.1",
-    "leaflet": "1.9.4"
+    "leaflet": "1.9.4",
+    "playwright": "1.64.1"
   }
 }

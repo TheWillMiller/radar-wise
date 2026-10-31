@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>RadarWise issue regression fixtures</title>
+<style>
+  body { margin: 20px; font: 16px system-ui; background: #e7edf2; }
+  #cards { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .fixture { width: 360px; }
+  radarwise-card { display: block; }
+  #editor { display: block; max-width: 650px; margin-top: 32px; }
+  h2 { font-size: 16px; }
+</style>
+<p id="status">Running...</p>
+<div id="cards"></div>
+<radarwise-card-editor id="editor"></radarwise-card-editor>
+<script type="module">
+import '../radarwise-card.js';
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const hour = (n) => new Date(Date.UTC(2026, 9, 31, n)).toISOString();
+const daily = Array.from({ length: 5 }, (_, i) => ({ datetime: hour(12 + i * 24), temperature: 20 + i, templow: 12, condition: 'rainy', precipitation: 25.4, precipitation_probability: 50 }));
+const hourly = Array.from({ length: 5 }, (_, i) => ({ datetime: hour(12 + i), temperature: 68 + i, condition: 'partlycloudy', precipitation: 1, precipitation_probability: 20 }));
+const twice = Array.from({ length: 6 }, (_, i) => ({ datetime: hour(12 + i * 12), temperature: i % 2 ? 52 : 70, condition: i % 2 ? 'clear-night' : 'sunny', is_daytime: i % 2 === 0, precipitation: 0 }));
+// Keep each evening on the same UTC date as its day, including DST test data in the unit suite.
+twice.forEach((item, i) => item.datetime = hour(12 + Math.floor(i / 2) * 24 + (i % 2 ? 8 : 0)));
+const calls = [];
+const hass = {
+  locale: { language: 'en', time_format: '24' },
+  config: { unit_system: { temperature: '°F' }, time_zone: 'UTC' },
+  states: {
+    'weather.home': { state: 'partlycloudy', attributes: { temperature: 70, temperature_unit: '°F', precipitation_unit: 'in', humidity: 60, supported_features: 6 } },
+    'weather.daily': { state: 'rainy', attributes: { temperature: 20, temperature_unit: '°C', precipitation_unit: 'mm', supported_features: 1 } },
+    'weather.hourly': { state: 'sunny', attributes: { temperature: 68, temperature_unit: '°F', precipitation_unit: 'in', supported_features: 2 } }
+  },
+  connection: { sendMessagePromise: async (message) => {
+    calls.push(message);
+    const source = message.target.entity_id;
+    const periods = message.service_data.type === 'hourly' ? hourly : message.service_data.type === 'daily' ? daily : twice;
+    return { response: { [source]: { forecast: periods } } };
+  } }
+};
+async function makeCard(id, config, width = 360) {
+  const wrapper = document.createElement('section');
+  wrapper.className = 'fixture'; wrapper.style.width = `${width}px`;
+  wrapper.innerHTML = `<h2>${id}</h2>`;
+  const card = document.createElement('radarwise-card'); card.id = id;
+  card.setConfig({ entity: 'weather.home', show_radar: false, show_environment: false, show_animations: false, show_forecast_summary: false, show_sunrise: false, show_sunset: false, layout: 'stacked', content_mode: 'custom', time_zone_mode: 'custom', time_zone: 'UTC', ...config });
+  card._hass = hass;
+  wrapper.append(card); document.querySelector('#cards').append(wrapper);
+  await card._loadForecasts(card._config.entity);
+  return card;
+}
+try {
+  const split = await makeCard('split', { daily_entity: 'weather.daily', hourly_entity: 'weather.hourly', units: 'metric', precipitation_unit: 'in', font_scale: 0.8 });
+  const paired = await makeCard('paired', { forecast_layout: 'paired', forecast_count: 3, theme_mode: 'dark', font_scale: 0.8 });
+  const editor = document.querySelector('#editor');
+  editor.hass = hass;
+  editor.setConfig({ entity: 'weather.home', panel_order: ['clock', 'weather', 'radar'] });
+  window.editorEvents = [];
+  editor.addEventListener('config-changed', (event) => window.editorEvents.push(event.detail.config));
+  await frame();
+  assert(split.shadowRoot.querySelectorAll('.hour-row').length === 5, 'split hourly row count');
+  assert(split.shadowRoot.querySelectorAll('.fc-slot').length === 5, 'split daily card count');
+  assert(split.shadowRoot.querySelector('.fc-temp').textContent === '20°', 'daily C source converted independently');
+  assert(split.shadowRoot.querySelector('.hour-temp-left').textContent === '20°', 'hourly F source converted independently');
+  assert(split.shadowRoot.querySelector('.fc-precip').textContent === '50% / 1in', 'daily rainfall converted to inches');
+  const columns = [...paired.shadowRoot.querySelectorAll('.fc-day-column')];
+  assert(columns.length === 3, 'three paired dates');
+  for (const column of columns) {
+    const [day, night] = [...column.children];
+    const d = day.getBoundingClientRect(), n = night.getBoundingClientRect();
+    assert(Math.abs(d.x - n.x) < 1 && n.y > d.y, 'night directly beneath day');
+    assert(day.querySelector('.fc-day').textContent === night.querySelector('.fc-day').textContent, 'paired date labels match');
+  }
+  // Font scaling works through responsive rules; default is unchanged.
+  const size = () => parseFloat(getComputedStyle(split.shadowRoot.querySelector('.temp-now')).fontSize);
+  const small = size();
+  split.setConfig({ ...split._config, font_scale: 1 }); await frame();
+  assert(Math.abs(small / size() - 0.8) < 0.01, 'font scale changes computed typography');
+  split.setConfig({ ...split._config, font_scale: 0.8 }); await frame();
+  const onlyDaily = await makeCard('daily-only', { entity: 'weather.daily' });
+  assert(onlyDaily.shadowRoot.querySelectorAll('.hour-row').length === 0, 'daily data never rendered as hourly');
+  const onlyHourly = await makeCard('hourly-only', { entity: 'weather.hourly' });
+  assert(onlyHourly.shadowRoot.querySelectorAll('.fc-slot').length === 0, 'hourly data never rendered as daily cards');
+  // Sources can be changed without waiting for the next hass update.
+  split.setConfig({ ...split._config, daily_entity: 'weather.home', forecast_mode: 'twice_daily' });
+  await frame();
+  assert(split._forecasts.twice_daily.length === 6 && split._forecasts.daily.length === 0, 'config immediately refreshes source');
+  split.setConfig({ ...split._config, daily_entity: 'weather.daily', forecast_mode: 'auto' }); await frame();
+  // Constrained layouts must retain access to both rows through scrolling.
+  const wide = await makeCard('wide-paired', { layout: 'wide_panel', forecast_layout: 'paired', forecast_count: 3, card_height: 360 }, 1000);
+  await frame();
+  const strip = wide.shadowRoot.querySelector('.daily-paired');
+  assert(getComputedStyle(strip).overflowY === 'auto', 'paired strip scrolls in fixed-height cards');
+  strip.scrollTop = strip.scrollHeight;
+  await frame();
+  assert(strip.scrollHeight <= strip.clientHeight || strip.scrollTop > 0, 'lower forecast row remains reachable');
+  window.fixtureCards = { split, paired, wide };
+  window.fixtureResult = { ok: true, serviceCalls: calls.length };
+  document.querySelector('#status').textContent = 'PASS: split forecasts, rain conversion, paired layout, font scaling and source changes';
+} catch (error) {
+  window.fixtureResult = { ok: false, error: error.stack };
+  document.querySelector('#status').textContent = `FAIL: ${error.message}`;
+  console.error(error);
+}
+</script>
+</html>

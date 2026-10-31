@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.24
+
+### Fixed
+
+- Keep hourly and daily forecast data separate, including integrations that expose different weather entities. Refresh immediately when sources change and ignore obsolete responses.
+- Convert rainfall amounts to the selected unit instead of retaining the provider's unit under an imperial/metric override.
+- Include MYanello's missing-value fix from PR #37 (commit `6849452`): preserve real zeroes, omit absent precipitation, and retain the available half of an incomplete high/low range.
+- Add a WebKit drag payload and selection protection to the panel editor, plus accessible up/down buttons for environments where dragging is unavailable.
+
+### Added
+
+- Optional `hourly_entity` and `daily_entity` selectors. Each defaults to the main weather entity, and each source's supported forecast types and units are respected.
+- Independent `precipitation_unit: auto | mm | in` and `font_scale` from 0.7 to 1.5 in YAML and the visual editor.
+- Opt-in `forecast_layout: paired` displays each local date's day above its night. The existing sequential arrangement remains the default. Independent weather subpanel ordering is still outstanding (#36).
+- Automated unit and Chromium/WebKit browser regressions. Live BOM and macOS Companion verification remain pending.
+
 ## 0.8.23
 
 ### Added
